@@ -59,14 +59,17 @@ subTaskSchema.index({
    AUTO HANDLE completedAt
 ========================================================= */
 
-subTaskSchema.pre('save', function (next) {
+/*
+ * Mongoose 9 (kareem 3) runs pre hooks synchronously / as promises — there is
+ * no `next` argument anymore, so calling it threw "next is not a function"
+ * and every subtask creation 500'd. Keep the hook synchronous.
+ */
+subTaskSchema.pre('save', function () {
   if (this.isModified('isCompleted')) {
     this.completedAt = this.isCompleted
       ? new Date()
       : null;
   }
-
-  next();
 });
 
 export const SubTask = mongoose.model(

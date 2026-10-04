@@ -135,7 +135,9 @@ const updateTaskValidator = () => [
   mongoIdParam('taskId'),
   body('title').optional().trim().notEmpty(),
   body('description').optional().isString(),
-  body('assignedTo').optional().isMongoId(),
+  // values: 'null' → undefined AND null skip validation, so `assignedTo: null`
+  // clears the assignment (unassign) instead of 400ing on isMongoId().
+  body('assignedTo').optional({ values: 'null' }).isMongoId(),
   body('status').optional().isIn(AvailableTaskStatues),
   body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH']),
 ];

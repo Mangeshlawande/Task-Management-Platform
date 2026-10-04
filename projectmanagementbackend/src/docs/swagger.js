@@ -329,7 +329,7 @@ const options = {
           properties: {
             title: { type: 'string', example: 'Design hero section' },
             description: { type: 'string' },
-            assignedTo: { type: 'string', description: 'User id — must be a project member' },
+            assignedTo: { type: 'string', description: 'User id — must be a project member. On update, send null to unassign.' },
             status: { type: 'string', enum: ['todo', 'in_progress', 'done'] },
             priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH'] },
             dueDate: { type: 'string', format: 'date-time' },

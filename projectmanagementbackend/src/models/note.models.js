@@ -56,17 +56,17 @@ projectNoteSchema.index({
    AUTO UPDATE editedAt
 ========================================================= */
 
-projectNoteSchema.pre(
-  'save',
-  function (next) {
-    if (
-      this.isModified('content') &&
-      !this.isNew
-    ) {
-      this.editedAt = new Date();
-    }
-    next();
+/*
+ * Mongoose 9 (kareem 3): pre hooks receive no `next` — a callback-style hook
+ * threw "next is not a function" and note creation/update 500'd.
+ */
+projectNoteSchema.pre('save', function () {
+  if (
+    this.isModified('content') &&
+    !this.isNew
+  ) {
+    this.editedAt = new Date();
   }
-);
+});
 
 export const ProjectNote = mongoose.model('ProjectNote', projectNoteSchema);

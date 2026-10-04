@@ -87,7 +87,10 @@ const updateSubTask = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Subtask does not belong to this task');
   }
 
-  // Authorization: creator, task owner, or project admin
+  // Authorization (docs/03 matrix): ticking the checkbox is open to EVERY
+  // project member — the route already scoped membership — while renaming is
+  // limited to the creator, task owner or project admin. The old blanket
+  // 403 here broke the member-facing checklist (P3.4 acceptance criterion).
   const isCreator =
     subTask.createdBy?._id.toString() === req.user._id.toString();
   const isTaskOwner =
@@ -96,8 +99,10 @@ const updateSubTask = asyncHandler(async (req, res) => {
     req.projectRole === UserRoleEnum.ADMIN ||
     req.projectRole === UserRoleEnum.PROJECT_ADMIN;
 
-  if (!isCreator && !isTaskOwner && !isProjectAdmin) {
-    throw new ApiError(403, 'Not allowed to update this subtask');
+  const canEdit = isCreator || isTaskOwner || isProjectAdmin;
+
+  if (title !== undefined && !canEdit) {
+    throw new ApiError(403, 'Not allowed to rename this subtask');
   }
 
   if (title !== undefined) {

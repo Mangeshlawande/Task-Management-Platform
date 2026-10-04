@@ -48,7 +48,7 @@
 | `GET /projects/:projectId/tasks` | — | `Task[]` | Populated assignedTo/assignedBy; newest first |
 | `POST /projects/:projectId/tasks` | **multipart**: `title, description?, assignedTo?, status?, priority?, dueDate?, attachments[] (≤5 files, 1MB, jpeg/png/webp)` | `Task` (201) | admin / project_admin |
 | `GET /projects/:projectId/tasks/:taskId` | — | `Task & { subTasks: SubTask[] }` | |
-| `PUT /projects/:projectId/tasks/:taskId` | JSON partial: any of title/description/status/assignedTo/priority/dueDate | `Task` | Creator or project admin |
+| `PUT /projects/:projectId/tasks/:taskId` | JSON partial: any of title/description/status/assignedTo/priority/dueDate | `Task` | Creator or project admin. `assignedTo: null` unassigns, `dueDate: null` clears the date. |
 | `DELETE /projects/:projectId/tasks/:taskId` | — | `{}` | Cascades subtasks |
 | `POST /projects/:projectId/tasks/:taskId/subtasks` | `{ title }` | `SubTask` (201) | admin / project_admin |
 | `PUT /projects/:projectId/tasks/:taskId/subtasks/:subTaskId` | `{ title?, isCompleted? }` | `SubTask` | Members may toggle `isCompleted` |
