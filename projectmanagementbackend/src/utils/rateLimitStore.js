@@ -1,4 +1,5 @@
 import { MemoryStore } from 'express-rate-limit';
+import Redis from 'ioredis';
 import { RedisStore } from 'rate-limit-redis';
 
 /* =========================================================
