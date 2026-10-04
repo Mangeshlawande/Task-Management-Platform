@@ -9,7 +9,7 @@ import { X } from 'lucide-react';
  * Rendered only while open (mount → showModal). Mark the element that should
  * receive focus with `data-autofocus`.
  */
-export function Modal({ open = true, onClose, title, description, children, footer }) {
+export function Modal({ open = true, onClose, title, description, children, footer, size = 'md' }) {
   const ref = useRef(null);
   const titleId = useId();
 
@@ -46,9 +46,9 @@ export function Modal({ open = true, onClose, title, description, children, foot
       ref={ref}
       aria-labelledby={titleId}
       // p-0 so any click landing on the dialog itself is a backdrop click.
-      className="m-auto w-[calc(100vw-2rem)] max-w-lg rounded-xl border border-border bg-card p-0
+      className={`m-auto w-[calc(100vw-2rem)] ${size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} rounded-xl border border-border bg-card p-0
         text-foreground shadow-xl backdrop:bg-slate-900/50
-        dark:border-dark-border dark:bg-dark-card dark:text-dark-foreground"
+        dark:border-dark-border dark:bg-dark-card dark:text-dark-foreground`}
       onClick={(event) => {
         if (event.target === ref.current) onClose?.();
       }}
