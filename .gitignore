@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+build/
+coverage/
+
+# Secrets — never commit real env files (templates stay tracked)
+.env
+.env.*
+!.env.example
+!.ENV.SAMPLE
+
+# Reference frontend only (see CHANGES.md) — not part of the shipped app
+project-zip/
+
+# Logs / OS / editor
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/

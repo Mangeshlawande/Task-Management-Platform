@@ -1,0 +1,7 @@
+.env
+node_modules
+read.md 
+mark.md
+client/e2e/shots/
+client/dist/
+client/node_modules/
