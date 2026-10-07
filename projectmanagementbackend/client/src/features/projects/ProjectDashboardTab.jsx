@@ -6,12 +6,14 @@ import { ApiError } from '../../api/client.js';
 import { Avatar, Badge, Skeleton } from '../../components/ui/index.js';
 import { fromNow, statusBadgeVariant, statusLabel } from '../../lib/format.js';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
+import { StatusBreakdownChart } from './StatusBreakdownChart.jsx';
 
 /**
  * Dashboard tab — the shell's index route.
- * P5.1 scope (stat cards / member count / recent tasks) lives here; the
- * charts land with the P5 pass. Numbers come from the dedicated dashboard
- * endpoint so they match the kanban exactly without aggregating client-side.
+ * P5.1 scope (stat cards / member count / recent tasks) lives here, plus the
+ * hand-rolled status donut (docs/07 § 2.4). Numbers come from the dedicated
+ * dashboard endpoint so they match the kanban exactly without aggregating
+ * client-side.
  */
 export function ProjectDashboardTab() {
   const { project } = useProject();
@@ -97,6 +99,8 @@ export function ProjectDashboardTab() {
           </div>
         ))}
       </div>
+
+      <StatusBreakdownChart stats={stats} />
 
       <div className="app-card p-5">
         <div className="flex items-center justify-between text-sm">

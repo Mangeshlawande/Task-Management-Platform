@@ -23,6 +23,21 @@ cd projectmanagementbackend && npm run lint
 #    land in client/e2e/shots/)
 cd projectmanagementbackend/client && npm run test:e2e
 
+# 2b) Feature E2E flows (backend :8000 + vite :5173 running; Chrome)
+cd projectmanagementbackend/client
+node e2e/board-flow.mjs      # P3 kanban — 32 assertions
+echo ""
+node e2e/notes-flow.mjs      # P4 notes — 27 assertions (also runs vs mock mode)
+node e2e/palette-flow.mjs    # ⌘K palette — 12 assertions
+node e2e/banner-flow.mjs     # ConnectionBanner / NF-06 — 10 assertions
+node e2e/dashboard-flow.mjs  # status donut / DASH-01+03 — 16 assertions
+
+# 2c) Mock API mode (no backend needed — separate terminal)
+cd projectmanagementbackend/client
+node src/lib/mock/mock-smoke.mjs   # Node assertions vs in-memory server — 16
+npm run dev:mock                   # then, in another terminal:
+node e2e/mock-mode.mjs             # browser smoke — 6
+
 # 3) client production build gate
 cd projectmanagementbackend/client && npm run build
 
@@ -30,7 +45,8 @@ cd projectmanagementbackend/client && npm run build
 ```
 
 **Regression gate before every commit:** `backend lint` → `client lint` →
-`client build` → `npm run test:e2e`. All four must be green.
+`client build` → `npm run test:e2e` → the feature E2E flow for whatever
+changed. All must be green.
 
 ## 2. Test-case status legend
 
@@ -93,40 +109,50 @@ cd projectmanagementbackend/client && npm run build
 | MEM-07 | Plain member tries invite/role/remove | Manual | Controls hidden; direct API call → 403 | ☐ |
 | MEM-08 | Cannot remove/downgrade self; ≥1 admin kept | API | 400 from backend guard | ☐ |
 
-## 6. Tasks / Kanban / Subtasks (⏳ build = P3)
+## 6. Tasks / Kanban / Subtasks (P3 — shipped; E2E = `e2e/board-flow.mjs`)
 
 | ID | Case | Layer | Expected result | Status |
 |---|---|---|---|---|
-| TASK-01 | Board loads 3 columns from `GET /projects/:id/tasks` | Manual | Loading skeleton → grouped by status | ⏳ |
-| TASK-02 | Create task (title, assignee, priority, due date) | Manual | Appears in `todo` column without reload | ⏳ |
-| TASK-03 | Create task with ≤5 image attachments (≤1MB, jpeg/png/webp) | Manual | Previews render; 6th file / wrong type rejected client-side | ⏳ |
-| TASK-04 | Move status (drag or menu) | Manual | Optimistic column move, rolls back on API failure | ⏳ |
-| TASK-05 | Task detail: edit fields (admin/project_admin) | Manual | Saved; member sees read-only | ⏳ |
-| TASK-06 | Subtask checklist toggle (any member) | Manual | `PUT …/subtasks/:id` toggles, progress updates | ⏳ |
-| TASK-07 | Member cannot edit title but can toggle subtasks | Manual | Controls hidden per role | ⏳ |
-| TASK-08 | Delete task with confirm | Manual | Card removed; attachments gone | ⏳ |
-| TASK-09 | Filters: search + assignee + priority combined | Manual | Combinable, clearable | ⏳ |
-| TASK-10 | Priority/dueDate persisted | API | `LOW/MEDIUM/HIGH` + ISO date round-trip | ⏳ |
+| TASK-01 | Board loads 3 columns from `GET /projects/:id/tasks` | E2E | Loading skeleton → grouped by status | ✅ |
+| TASK-02 | Create task (title, assignee, priority, due date) | E2E | Appears in `todo` column without reload | ✅ |
+| TASK-03 | Create task with ≤5 image attachments (≤1MB, jpeg/png/webp) | Manual | Previews render; 6th file / wrong type rejected client-side | ☐ |
+| TASK-04 | Move status (drag or menu) | E2E | Optimistic column move, rolls back on API failure | ✅ |
+| TASK-05 | Task detail: edit fields (admin/project_admin) | E2E | Saved; member sees read-only | ✅ |
+| TASK-06 | Subtask checklist toggle (any member) | E2E | `PUT …/subtasks/:id` toggles, progress updates | ✅ |
+| TASK-07 | Member cannot edit title but can toggle subtasks | Manual | Controls hidden per role | ☐ |
+| TASK-08 | Delete task with confirm | E2E | Card removed; attachments gone | ✅ |
+| TASK-09 | Filters: search + assignee + priority combined | Manual | Combinable, clearable (board-flow asserts search + priority; assignee combo still manual) | ☐ |
+| TASK-10 | Priority/dueDate persisted | API | `LOW/MEDIUM/HIGH` + ISO date round-trip | ☐ |
 
-## 7. Notes (⏳ build = P4)
+## 7. Notes (P4 — shipped; E2E = `e2e/notes-flow.mjs`, 27 assertions, runs vs live backend AND mock mode)
 
 | ID | Case | Layer | Expected result | Status |
 |---|---|---|---|---|
-| NOTE-01 | Grid + pagination from `meta` | Manual | Page/limit honoured, skeletons on page change | ⏳ |
-| NOTE-02 | Create/edit as admin | Manual | Appears/updates in place | ⏳ |
-| NOTE-03 | Pin toggle | Manual | Pinned notes sort first + badge, optimistic | ⏳ |
-| NOTE-04 | Delete with confirm | Manual | Removed | ⏳ |
-| NOTE-05 | Member role | Manual | Read-only; API 403 if forced | ⏳ |
+| NOTE-01 | Grid + pagination from `meta` | E2E | Page/limit honoured, skeletons on page change | ✅ |
+| NOTE-02 | Create/edit as admin | E2E | Appears/updates in place | ✅ |
+| NOTE-03 | Pin toggle | E2E | Pinned notes sort first + badge, optimistic | ✅ |
+| NOTE-04 | Delete with confirm | E2E | Removed | ✅ |
+| NOTE-05 | Member role | E2E | Read-only (own note editable — owner rule); API 403 if forced | ✅ |
 
 ## 8. Dashboard (`ProjectDashboardTab`)
 
 | ID | Case | Layer | Expected result | Status |
 |---|---|---|---|---|
-| DASH-01 | Stats match the board (todo/in_progress/done/total) | Manual | Numbers equal kanban column counts | ☐ |
+| DASH-01 | Stats match the board (todo/in_progress/done/total) | E2E | Numbers equal kanban column counts (incl. status donut legend/aria) | ✅ |
 | DASH-02 | Member count + recent tasks | Manual | Matches members tab / latest tasks | ☐ |
-| DASH-03 | Empty project | Manual | Zeroed stats, no NaN/blank | ☐ |
+| DASH-03 | Empty project | E2E | Zeroed stats + base-ring donut, no NaN/blank | ✅ |
 
-## 9. Non-functional (all features)
+## 9. Command palette (⌘K — shipped; E2E = `e2e/palette-flow.mjs`)
+
+| ID | Case | Layer | Expected result | Status |
+|---|---|---|---|---|
+| PAL-01 | ⌘K / Ctrl+K opens, Esc closes | E2E | Palette toggles from anywhere; Esc leaves the route untouched | ✅ |
+| PAL-02 | Filter → Enter runs first match | E2E | Typing "kanban" → Enter navigates to the board; no-match shows empty state | ✅ |
+| PAL-03 | Create intents (task/note/project) | E2E | Navigate → target page opens its create modal (role-gated, 15 s TTL) | ✅ |
+| PAL-04 | Theme command | E2E | Toggles the applied dark class (works from `system` too) | ✅ |
+| PAL-05 | Mouse selection + focus trap | Manual | Hover moves active, click runs, focus never leaves the dialog | ☐ |
+
+## 10. Non-functional (all features)
 
 | ID | Case | Layer | Expected result | Status |
 |---|---|---|---|---|
@@ -135,19 +161,21 @@ cd projectmanagementbackend/client && npm run build
 | NF-03 | Dark + light theme on every page | Manual | Tokens from `styles/theme.css`, no unstyled flash | ☐ |
 | NF-04 | Keyboard-only walkthrough | Manual | Focus trapped in modals, `role="alert"` errors, labelled fields | ☐ |
 | NF-05 | 375 px responsive | Manual | Sidebar collapses, board scrolls horizontally | ☐ |
-| NF-06 | Network offline / API down | Manual | Toast/inline error, no white screen | ☐ |
+| NF-06 | Network offline / API down | E2E | Banner + auto-probe/Retry, no white screen (`e2e/banner-flow.mjs`) | ✅ |
 | NF-07 | 404 route | Manual | Friendly 404 with link back | ☐ |
 | NF-08 | Envelope conformance | Manual | `{ success, message, data, meta }` / errors `{ field: [msgs] }` | ☐ |
 
-## 10. Known gaps (accepted for now)
+## 11. Known gaps (accepted for now)
 
 - **No backend unit/integration tests** — `jest` is configured
-  (`jest.config.mjs`, `npm test`) but contains **0 test files**; API rows above
-  are curl-manual until a supertest suite lands.
-- **No client unit tests** — coverage comes from the Chrome E2E suite only.
-- Rows marked ⏳ become mandatory the moment their feature ships (P3/P4).
+  (`jest.config.mjs`, `npm test`) but contains **0 test files** and the
+  `jest` binary is not installed (`npm test` → `jest: not found`); API rows
+  above are curl-manual until a supertest suite lands.
+- **No client unit tests** — coverage comes from the Chrome E2E suites only
+  (auth 48, board 32, notes 27, palette 12, banner 10, dashboard 16, mock 6
+  assertions — all green as of 2026-10-07).
 
-## 11. Release checklist
+## 12. Release checklist
 
 1. Regression gate green (§ 1)
 2. All ☐ rows in the touched feature area executed

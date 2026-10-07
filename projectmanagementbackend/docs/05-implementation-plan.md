@@ -80,6 +80,10 @@ cards deliberately render without a link until the project shell (2.3) exists.
 | 4.2 | Create/edit modal (admin/project_admin only), delete confirm | Member sees read-only |
 | 4.3 | Pin toggle | Optimistic update |
 
+**Status:** shipped 2026-10-07 — `features/notes/NotesPage.jsx` (grid,
+12/page pagination, pin, CRUD, role gates). E2E: `client/e2e/notes-flow.mjs`
+27/27 vs live backend and mock mode (TESTCASES NOTE-01..05 ✅).
+
 ## P5 — Dashboard & Polish  (~1 day)
 
 | # | Task | Done when |
@@ -90,6 +94,14 @@ cards deliberately render without a link until the project shell (2.3) exists.
 | 5.4 | Responsive: sidebar → bottom nav on mobile; board horizontal-scroll | 375px wide verified |
 | 5.5 | a11y pass: focus traps in modals, `aria-*` on interactive, contrast | Keyboard-only walkthrough |
 | 5.6 | Error boundary + 404 + offline toast | No white screens |
+
+**Status:** 5.1 done (stat cards + recent tasks earlier; status donut added
+2026-10-07 — `StatusBreakdownChart.jsx`, E2E `dashboard-flow.mjs` 16/16,
+DASH-01/03 ✅). 5.6's offline part shipped as `ConnectionBanner`
+(`banner-flow.mjs` 10/10, NF-06 ✅); 404 route exists. 5.2–5.5 remain manual
+QA (TESTCASES NF-03/04/05 ☐, skeletons already exist per view). Also shipped
+outside this phase's original scope: ⌘K command palette (`palette-flow.mjs`
+12/12). See `07-remaining-work.md`.
 
 ## Definition of Done (every feature)
 

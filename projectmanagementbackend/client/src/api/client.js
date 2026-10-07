@@ -5,16 +5,20 @@
  *  - Errors: { success, message, errors: { field: [msgs] } } → ApiError with .fieldErrors
  *  - Auth: httpOnly cookies (credentials: 'include'), same-origin via Vite proxy
  *  - 401 → one silent refresh + retry; refresh failure → session cleared
+ *
+ * Mock mode: with VITE_USE_MOCK_API=true every request is served by the
+ * in-memory server in lib/mock/mock-server.js instead of fetch — no backend
+ * needed for UI demos. The mock throws the same ApiError, so feature code is
+ * unaffected (see `useMockApi` below).
  */
+import { ApiError } from './errors.js';
+import { handleMockRequest } from '../lib/mock/mock-server.js';
 
-export class ApiError extends Error {
-  constructor(status, message, fieldErrors = {}) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.fieldErrors = fieldErrors; // { field: [messages] }
-  }
-}
+export { ApiError };
+
+const useMockApi =
+  typeof import.meta !== 'undefined' &&
+  import.meta.env?.VITE_USE_MOCK_API === 'true';
 
 let refreshingPromise = null;
 
@@ -44,7 +48,48 @@ export function setSessionExpiredHandler(fn) {
   onSessionExpired = typeof fn === 'function' ? fn : null;
 }
 
+/*
+ * Connection events for the offline banner (docs/07 § 2.3). Dispatched on
+ * `window` so the banner can subscribe without importing the client's
+ * internals: 'pc:api-down' when fetch itself fails (server unreachable),
+ * 'pc:api-up' on the next response of any kind (server reachable again).
+ */
+const emit = (name) =>
+  typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent(name));
+
+/** Route one request through the in-memory mock server (mock mode only). */
+async function mockRequest(path, { method, body, formData, retry = true }) {
+  try {
+    const payload = await handleMockRequest(method, path, {
+      body: formData ?? body,
+    });
+    return payload?.data;
+  } catch (err) {
+    if (err instanceof ApiError) {
+      // Parity with the fetch path: an INVALID_TOKEN 401 means the session is
+      // gone (the mock never expires sessions; logout/change-password clear
+      // db.session directly) → surface the same "session expired" behaviour.
+      const isExpiredSession =
+        err.status === 401 &&
+        Array.isArray(err.codes) &&
+        err.codes.includes('INVALID_TOKEN');
+      const isAuthEndpoint =
+        path.includes('/auth/login') || path.includes('/auth/register');
+      if (isExpiredSession && !isAuthEndpoint && retry) {
+        onSessionExpired?.();
+        throw new ApiError(401, 'Your session has expired. Please log in again.');
+      }
+      throw err;
+    }
+    throw new ApiError(0, err?.message || 'Mock request failed.');
+  }
+}
+
 async function request(path, { method = 'GET', body, formData, retry = true } = {}) {
+  if (useMockApi) {
+    return mockRequest(path, { method, body, formData, retry });
+  }
+
   let res;
   try {
     res = await fetch(path, {
@@ -54,8 +99,11 @@ async function request(path, { method = 'GET', body, formData, retry = true } = 
       body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
   } catch {
+    emit('pc:api-down');
     throw new ApiError(0, 'Cannot reach the server. Check your connection.');
   }
+  // We got a response — the server is up (even a 500 counts as reachable).
+  emit('pc:api-up');
 
   // 401 → silent refresh + retry ONLY when it's really an expired/invalid
   // session. The backend marks auth-middleware 401s with ['INVALID_TOKEN'];

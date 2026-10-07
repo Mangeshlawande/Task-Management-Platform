@@ -11,6 +11,8 @@ coverage/
 .env.*
 !.env.example
 !.ENV.SAMPLE
+# client/.env.mock holds no secrets (VITE_USE_MOCK_API=true only) — needed for `npm run dev:mock`
+!projectmanagementbackend/client/.env.mock
 
 # Reference frontend only (see CHANGES.md) — not part of the shipped app
 project-zip/

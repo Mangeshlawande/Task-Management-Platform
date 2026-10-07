@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, FolderOpen, Plus, Users } from 'lucide-react';
 import { Badge, Button, EmptyState, Skeleton } from '../../components/ui/index.js';
+import { consumePendingCreate, useUiStore } from '../../stores/uiStore.js';
 import {
   formatDate,
   memberCountLabel,
@@ -20,6 +21,12 @@ import { useProjects } from './useProjects.js';
 export function ProjectsPage() {
   const { projects, status, error, reload, addProject } = useProjects();
   const [creating, setCreating] = useState(false);
+  const pendingCreate = useUiStore((s) => s.pendingCreate);
+
+  // ⌘K palette "Create new project" → open the modal on arrival (one-shot).
+  useEffect(() => {
+    if (pendingCreate && consumePendingCreate('project')) setCreating(true);
+  }, [pendingCreate]);
 
   const count = projects.length;
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Inbox, Paperclip, Plus, RefreshCw, Search } from 'lucide-react';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
 import {
@@ -15,7 +15,7 @@ import {
   statusLabel,
 } from '../../lib/format.js';
 import { useAuthStore } from '../../stores/authStore.js';
-import { toast } from '../../stores/uiStore.js';
+import { toast, useUiStore, consumePendingCreate } from '../../stores/uiStore.js';
 import { useBoardTasks } from './useBoardTasks.js';
 import { TaskCreateModal } from './TaskCreateModal.jsx';
 import { TaskDetailModal } from './TaskDetailModal.jsx';
@@ -44,10 +44,17 @@ export function BoardPage() {
   const [assignee, setAssignee] = useState('all');
   const [priority, setPriority] = useState('all');
   const [creating, setCreating] = useState(false);
+  const pendingCreate = useUiStore((s) => s.pendingCreate);
   const [openTaskId, setOpenTaskId] = useState(null);
   const [dragOver, setDragOver] = useState(null);
 
   const canCreate = canManageContent(myRole);
+
+  // ⌘K palette "Create task" → open the modal on arrival (one-shot). Role-gated
+  // so a plain member never sees a modal their role can't submit (docs/05 DoD).
+  useEffect(() => {
+    if (pendingCreate && consumePendingCreate('task') && canCreate) setCreating(true);
+  }, [pendingCreate, canCreate]);
   const canMove = (task) =>
     canManageContent(myRole) || task.assignedBy?._id === currentUserId;
 

@@ -93,8 +93,8 @@ const config = {
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   // moduleNameMapper: {},
 
-  // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
-  // modulePathIgnorePatterns: [],
+  // ESM test files must be transformed
+  extensionsToTreatAsEsm: ['.mjs'],
 
   // Activates notifications for test results
   // notify: false,
@@ -147,19 +147,14 @@ const config = {
   // snapshotSerializers: [],
 
   // The test environment that will be used for testing
-  // testEnvironment: "jest-environment-node",
+  // testEnvironment: 'jest-environment-node',
+
+  // Where Jest looks for test files
+  testMatch: ['**/*.test.mjs']
 
   // Options that will be passed to the testEnvironment
-  // testEnvironmentOptions: {},
 
-  // Adds a location field to test results
-  // testLocationInResults: false,
-
-  // The glob patterns Jest uses to detect test files
-  // testMatch: [
-  //   "**/__tests__/**/*.?([mc])[jt]s?(x)",
-  //   "**/?(*.)+(spec|test).?([mc])[jt]s?(x)"
-  // ],
+  // Adds a location field to test results,
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // testPathIgnorePatterns: [
@@ -167,7 +162,7 @@ const config = {
   // ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
-  // testRegex: [],
+  testMatch: ['**/*.test.js'], // ESM-aware: only this directory is tested,
 
   // This option allows the use of a custom results processor
   // testResultsProcessor: undefined,
