@@ -12,7 +12,9 @@
 ```
 Render build command:
   npm ci                                  # backend deps
-  cd client && npm ci && npm run build    # Vite → client/dist (gitignored)
+  cd client && npm ci --include=dev && npm run build   # Vite → client/dist
+                                   # (--include=dev: NODE_ENV=production
+                                   #  would skip devDeps → no vite)
 
 Render start command:
   npm start                               # node src/index.js (Express, :PORT)
@@ -44,8 +46,9 @@ Browser  ──GET/POST /api/v1/*──────▶  Express API (same origin
 
 1. Render Dashboard → **New + → Blueprint** → connect your repo.
 2. Render reads `render.yaml` at the root. It pre-fills:
-   - `rootDir: projectmanagementbackend` (the client-inside-backend layout)
-   - build: `npm ci && cd client && npm ci && npm run build`
+   - `rootDir: projectmanagementbackend` (the client-inside-backend layout)    - build: `npm ci && cd client && npm ci --include=dev && npm run build`
+      (`--include=dev` because `NODE_ENV=production` applies at build time and
+      would otherwise skip vite)
    - start: `npm start`, health check: `/api/v1/healthcheck`
    - `NODE_ENV=production`, `NODE_VERSION=24.18.0`, `TRUST_PROXY=1`
    - `ACCESS_TOKEN_SECRET` / `REFRESH_TOKEN_SECRET` auto-generated (secret)
@@ -126,6 +129,7 @@ only `/` behaviour differs while dist exists).
 | Symptom | Cause / fix |
 |---|---|
 | Deploy fails at `npm run build` | read build log; usually a client lint/type error — reproduce locally with `cd client && npm run build` |
+| `sh: 1: vite: not found` | build command missing `--include=dev` — `NODE_ENV=production` makes `npm ci` skip devDependencies (vite is one) |
 | App crashes on boot: `MongoServerSelectionError` | `MONGO_URI` unset/wrong, or Atlas Network Access missing `0.0.0.0/0` |
 | `/` shows API JSON, not the UI | `client/dist/index.html` missing → build command didn't run or `rootDir` wrong |
 | Deep link 404s on refresh | stale deploy — clear cache & redeploy so the new `app.js` SPA fallback ships |

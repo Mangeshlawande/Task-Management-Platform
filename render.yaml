@@ -11,7 +11,9 @@ services:
     runtime: node
     rootDir: projectmanagementbackend
     plan: free # 0.1 CPU / 512 MB; swap for 0.5c-512mb or larger in prod
-    buildCommand: npm ci && cd client && npm ci && npm run build
+    # NODE_ENV=production (below) applies at build time too, which makes npm ci
+    # skip devDependencies — --include=dev is required or vite won't install.
+    buildCommand: npm ci && cd client && npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/v1/healthcheck
     autoDeployTrigger: commit
