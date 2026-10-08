@@ -98,7 +98,7 @@ Open `https://<service>.onrender.com` and check:
 # Seed demo data (idempotent, safe to re-run) — Render shell or locally
 # against the prod DB:
 #   Dashboard → <service> → Shell → npm run seed
-npm run seed            # add --wipe first if you want to reset
+npm run seed           
 ```
 
 - **File uploads** (`public/images`): the Render filesystem is **ephemeral** —
