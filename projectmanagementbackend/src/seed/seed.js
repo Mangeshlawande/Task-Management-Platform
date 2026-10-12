@@ -69,7 +69,6 @@ const demoUsers = [
     fullName: 'Camp Admin',
     password: DEMO_PASSWORD,
     role: UserRoleEnum.ADMIN,
-    isEmailVerified: true,
   },
   {
     username: 'maya',
@@ -77,7 +76,6 @@ const demoUsers = [
     fullName: 'Maya Sharma',
     password: DEMO_PASSWORD,
     role: UserRoleEnum.MEMBER,
-    isEmailVerified: true,
   },
   {
     username: 'leo',
@@ -85,7 +83,6 @@ const demoUsers = [
     fullName: 'Leo Fernandes',
     password: DEMO_PASSWORD,
     role: UserRoleEnum.MEMBER,
-    isEmailVerified: true,
   },
   {
     username: 'priya',
@@ -93,7 +90,6 @@ const demoUsers = [
     fullName: 'Priya Nair',
     password: DEMO_PASSWORD,
     role: UserRoleEnum.MEMBER,
-    isEmailVerified: true,
   },
   {
     username: 'arjun',
@@ -101,7 +97,6 @@ const demoUsers = [
     fullName: 'Arjun Kale',
     password: DEMO_PASSWORD,
     role: UserRoleEnum.MEMBER,
-    isEmailVerified: true,
   },
 ];
 
@@ -342,7 +337,6 @@ async function upsertUsers() {
       // Keep the account fresh: verified + the documented demo password.
       existing.fullName = spec.fullName;
       existing.password = DEMO_PASSWORD;
-      existing.isEmailVerified = true;
       existing.role = spec.role;
       await existing.save({ validateBeforeSave: false });
       byUsername[spec.username] = existing;

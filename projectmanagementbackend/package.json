@@ -11,11 +11,9 @@
     "express-validator": "^7.3.2",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
-    "mailgen": "^2.0.32",
     "mongodb": "^7.1.1",
     "mongoose": "^9.4.1",
     "multer": "^2.1.1",
-    "nodemailer": "^8.0.4",
     "nodemon": "^3.1.14",
     "rate-limit-redis": "^6.0.1",
     "swagger-jsdoc": "^6.2.8",
@@ -34,7 +32,7 @@
     "#routes/*": "./src/routes/*"
   },
   "scripts": {
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/seed/seed.js",
     "start": "node src/index.js",

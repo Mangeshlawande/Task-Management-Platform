@@ -95,25 +95,14 @@ async function main() {
   page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
   console.log(`▶ Chrome up. Ephemeral board user: ${USER}`);
 
-  /* ── 1. Register + verify (OTP via dev panel) ─────────────── */
-  step('1) Sign up + verify');
+  /* ── 1. Register (no verification step) ────────────────── */
+  step('1) Sign up → signed in immediately');
   await page.goto(`${BASE}/register`, { waitUntil: 'networkidle0' });
   await typeInput('#username', USER);
   await typeInput('#email', EMAIL);
   await typeInput('#password', PASS);
   await clickButton('Create account');
-  ok('at /verify-email', await expectPath('/verify-email', 20000));
-  await sleep(400);
-  const clicked = await page.evaluate(() => {
-    const el = [...document.querySelectorAll('button')].find((b) =>
-      /^\d{6}$/.test((b.textContent || '').trim()),
-    );
-    if (!el) return false;
-    el.click();
-    return true;
-  });
-  ok('dev OTP auto-submit', clicked);
-  ok('landed on /projects', await expectPath('/projects'));
+  ok('landed on /projects', await expectPath('/projects', 20000));
   await sleep(500);
 
   /* ── 2. Create a project, open the Board tab ──────────────── */

@@ -25,25 +25,24 @@
 
 | # | Task | Done when |
 |---|---|---|
-| 1.0 | Email OTP verification — backend (`/auth/verify-otp`, `/auth/resend-otp`, `isEmailVerified` gate on login) + `VerifyEmailPage` | Register → code arrives (or `devOtp` in dev) → verifying logs the user in; wrong code counts down attempts; unverified login lands on `/verify-email` |
-| 1.1 | **RegisterPage** — username/email/fullName/password, client rules mirror backend | Submit creates account → toast → `/verify-email?email=…` |
+| 1.0 | ~~Email OTP verification~~ **removed 2026-10** — no verification step, no mail | Register creates the account **and signs the user in** in one request → `/projects` |
+| 1.1 | **RegisterPage** — username/email/fullName/password, client rules mirror backend | Submit creates account + session → toast → `/projects` |
 | 1.2 | Register error mapping: 400 field errors + 409 duplicate | Fake email shows inline "already exists" |
 | 1.3 | **LoginPage** — one identifier field, password, show/hide, redirect back to `from` | Login sets cookies, lands on `/projects` |
 | 1.4 | Logout in topbar menu | Click → cookies cleared → `/login` |
 | 1.5 | Session bootstrap (`GET /auth/me`) on protected layout mount | Hard reload on `/projects` stays logged in |
-| 1.6 | ForgotPasswordPage + sent confirmation state | Always shows neutral confirmation |
-| 1.7 | ResetPasswordPage (`/reset-password/:token`), success → login | Valid token resets; expired shows friendly error |
-| 1.8 | SettingsPage: profile display (role badge + **email-verified badge**) + change-password (logout after) | Flow works end-to-end |
+| 1.6 | ~~ForgotPasswordPage~~ **removed** — no e-mail to send a link from | `/forgot-password` renders the 404 page |
+| 1.7 | ~~ResetPasswordPage~~ **removed** | API `/auth/reset-password/:token` → 404 |
+| 1.8 | SettingsPage: profile display (role badge) + change-password (logout after) | Flow works end-to-end |
 
 **Sign-up acceptance criteria (definition of done for the first feature):**
 - [ ] All fields validated client-side with same rules as backend
 - [ ] Submitting shows pending state; double-submit impossible
 - [ ] Backend `errors` object maps to inline field messages
 - [ ] 409 surfaces as inline field error, not a toast
-- [ ] Success → user lands on `/verify-email` with the email prefilled and a success toast
-- [ ] 6-digit OTP entry: paste-friendly, auto-submits when full, resend with a 30 s countdown
-- [ ] Wrong / expired code shows a recovery path ("request a new code")
-- [ ] Unverified login redirects to `/verify-email` instead of a dead-end error
+- [ ] Success → account is live: cookies set, user seeded into the store, lands on `/projects`
+- [ ] No verification screen exists (`/verify-email`, `/forgot-password`, `/reset-password/:token` all render the 404 page)
+- [ ] Old auth endpoints (`/auth/verify-otp`, `/auth/resend-otp`, `/auth/forgot-password`, `/auth/reset-password/:t`) answer 404
 - [ ] Works with keyboard only; labels bound with `htmlFor`; errors have `role="alert"`
 - [ ] Dark and light themes both verified
 

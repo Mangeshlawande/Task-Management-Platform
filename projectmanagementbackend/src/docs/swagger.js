@@ -131,12 +131,6 @@ const options = {
             email: { type: 'string', format: 'email', example: 'jane@example.com' },
             fullName: { type: 'string', example: 'Jane Doe' },
             role: { type: 'string', enum: ['admin', 'project_admin', 'member'] },
-            isEmailVerified: {
-              type: 'boolean',
-              description:
-                'Absent on accounts created before OTP verification existed — treat missing as verified',
-              example: true,
-            },
             avatar: {
               type: 'object',
               properties: {
@@ -249,26 +243,6 @@ const options = {
             fullName: { type: 'string', example: 'Jane Doe', description: 'Optional display name' },
           },
         },
-        VerifyEmailOtpRequest: {
-          type: 'object',
-          required: ['email', 'otp'],
-          properties: {
-            email: { type: 'string', format: 'email', example: 'jane@example.com' },
-            otp: {
-              type: 'string',
-              description: '6-digit code from the verification email',
-              pattern: '^[0-9]{6}$',
-              example: '428913',
-            },
-          },
-        },
-        ResendOtpRequest: {
-          type: 'object',
-          required: ['email'],
-          properties: {
-            email: { type: 'string', format: 'email', example: 'jane@example.com' },
-          },
-        },
         LoginRequest: {
           type: 'object',
           description: 'Send either email or username (not both required).',
@@ -291,20 +265,6 @@ const options = {
           required: ['oldPassword', 'newPassword'],
           properties: {
             oldPassword: { type: 'string', format: 'password' },
-            newPassword: { type: 'string', format: 'password', minLength: 8 },
-          },
-        },
-        ForgotPasswordRequest: {
-          type: 'object',
-          required: ['email'],
-          properties: {
-            email: { type: 'string', format: 'email' },
-          },
-        },
-        ResetPasswordRequest: {
-          type: 'object',
-          required: ['newPassword'],
-          properties: {
             newPassword: { type: 'string', format: 'password', minLength: 8 },
           },
         },

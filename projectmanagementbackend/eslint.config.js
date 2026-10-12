@@ -33,11 +33,14 @@ export default [
     },
   },
   {
-    files: ['tests/**/*.js'],
+    // Jest lives in `*.test.js` anywhere (e.g. src/auth/auth.test.js) and in
+    // `tests/` — those files run inside Jest, where these globals exist.
+    files: ['**/*.test.js', 'tests/**/*.js'],
     languageOptions: {
       globals: {
         describe: 'readonly',
         it: 'readonly',
+        test: 'readonly',
         expect: 'readonly',
         beforeEach: 'readonly',
         afterEach: 'readonly',

@@ -2,13 +2,11 @@ import mongoose, { Schema } from 'mongoose';
 import {
   AvailableUserRole,
   UserRoleEnum,
-  EmailOtpPolicy,
 } from '#utils/constants.js';
 
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 
 const userSchema = new Schema(
   {
@@ -73,40 +71,6 @@ const userSchema = new Schema(
       type: String,
       select: false,
     },
-
-    forgotPasswordToken: String,
-
-    forgotPasswordExpiry: Date,
-
-    /* --- Email verification (OTP) --------------------------------------
-       `isEmailVerified` deliberately has NO default: accounts created
-       before OTP verification existed have no stored value and are treated
-       as verified (see `loginUser`), so nobody is locked out. New sign-ups
-       set it to `false` explicitly. */
-    isEmailVerified: Boolean,
-
-    // Only the sha256 hash of the code is stored — never the code itself.
-    emailVerificationOtp: {
-      type: String,
-      select: false,
-    },
-
-    emailVerificationOtpExpiry: {
-      type: Date,
-      select: false,
-    },
-
-    emailVerificationOtpAttempts: {
-      type: Number,
-      default: 0,
-      select: false,
-    },
-
-    // Enforces the resend cooldown without an extra round-trip to the mailer.
-    emailVerificationOtpSentAt: {
-      type: Date,
-      select: false,
-    },
   },
   {
     timestamps: true,
@@ -165,8 +129,9 @@ userSchema.methods.generateAccessToken =
       process.env.ACCESS_TOKEN_SECRET,
 
       {
-        expiresIn:
-          process.env.ACCESS_TOKEN_EXPIRY,
+        // Fallbacks matter: on Render there is no .env file, and an
+        // `expiresIn: undefined` makes jsonwebtoken throw (login → 500).
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '1d',
       }
     );
   };
@@ -185,78 +150,9 @@ userSchema.methods.generateRefreshToken =
       process.env.REFRESH_TOKEN_SECRET,
 
       {
-        expiresIn:
-          process.env.REFRESH_TOKEN_EXPIRY,
+        expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d',
       }
     );
-  };
-
-/* =========================================================
-   GENERATE SECURE TEMP TOKEN
-========================================================= */
-
-userSchema.methods.generateTemporaryToken =
-  function () {
-    const unHashedToken = crypto
-      .randomBytes(20)
-      .toString('hex');
-
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(unHashedToken)
-      .digest('hex');
-
-    const tokenExpiry =
-      Date.now() + 20 * 60 * 1000;
-
-    return {
-      unHashedToken,
-      hashedToken,
-      tokenExpiry,
-    };
-  };
-
-/* =========================================================
-   EMAIL VERIFICATION OTP
-========================================================= */
-
-userSchema.methods.generateEmailVerificationOtp =
-  function () {
-    const { codeLength } = EmailOtpPolicy;
-
-    // crypto.randomInt is CSPRNG-backed (Math.random must never be used for
-    // a value a user could guess).
-    const otp = crypto
-      .randomInt(10 ** (codeLength - 1), 10 ** codeLength)
-      .toString();
-
-    this.emailVerificationOtp = crypto
-      .createHash('sha256')
-      .update(otp)
-      .digest('hex');
-
-    this.emailVerificationOtpExpiry = new Date(
-      Date.now() + EmailOtpPolicy.ttlMs
-    );
-    this.emailVerificationOtpAttempts = 0;
-    this.emailVerificationOtpSentAt = new Date();
-
-    // Returned exactly once so the caller can email it — never persisted.
-    return otp;
-  };
-
-userSchema.methods.isEmailVerificationOtpValid =
-  function (otp) {
-    if (!this.emailVerificationOtp) {
-      return false;
-    }
-
-    const hashed = crypto
-      .createHash('sha256')
-      .update(String(otp))
-      .digest('hex');
-
-    return hashed === this.emailVerificationOtp;
   };
 
 export const User = mongoose.model(

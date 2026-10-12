@@ -4,9 +4,8 @@ REST API for a collaborative project management system (projects, tasks, subtask
 
 ## Features
 
-- **Auth** — register (email OTP verification), login (email *or* username), logout, `GET /me`, refresh-token rotation, change password, forgot/reset password, delete account, resend verification code
-  - Accounts stay inactive until the emailed 6-digit code is verified; a verified code logs the user straight in
-  - In development (`NODE_ENV !== 'production'`) the code is returned as `data.devOtp` and printed to the console, so the flow works even without a mailbox
+- **Auth** — register (**no verification step: sign-up logs you straight in**), login (email *or* username), logout, `GET /me`, refresh-token rotation, change password, delete account
+  - There is no e-mail anywhere: no OTP, no SMTP config, no forgot/reset-password flow (passwords change from Settings while logged in)
   - JWT access + refresh tokens set as **httpOnly cookies** (Bearer header also accepted)
 - **Projects** — CRUD + member management (add by email, roles, remove) with role-based permissions
 - **Tasks & Subtasks** — CRUD, assignment to project members, status (`todo | in_progress | done`), priority, due dates, up to 5 image attachments per task
@@ -32,15 +31,12 @@ npm run dev
 
 A bootstrap admin is created on first start from `ADMIN_*` env vars.
 
-## Mail (password-reset emails)
+## Mail
 
-**Zero-config by default:** when no SMTP env vars are set, the app auto-creates an
-[Ethereal](https://ethereal.email) test account on first send and logs a **preview URL**
-to the console — open it in a browser to see the email. No signup, nothing really delivered.
-
-For production, set `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` with any provider
-(Gmail app-password, Resend, Brevo, Mailgun, Postmark, company SMTP…).
-Legacy `MAILTRAP_*` variables are still honored as a fallback.
+**None.** The app sends no email at all: `nodemailer`, `mailgen` and
+`src/utils/mail.js` were removed along with the OTP verification and
+forgot-password flows, and no `SMTP_*` variables exist. Accounts are usable the
+moment they are created.
 
 ## API overview
 
@@ -49,7 +45,7 @@ errors: `{ success, message, errors: { field: [messages] } }`.
 
 | Group | Endpoints |
 |---|---|
-| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET|DELETE /auth/me`, `POST /auth/refresh-token`, `POST /auth/change-password`, `POST /auth/forgot-password`, `POST /auth/reset-password/:resetToken` |
+| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET|DELETE /auth/me`, `POST /auth/refresh-token`, `POST /auth/change-password` |
 | Projects | `GET|POST /projects`, `GET|PUT|DELETE /projects/:projectId`, `GET|POST /projects/:projectId/members`, `PUT|DELETE /projects/:projectId/members/:userId` |
 | Tasks | `GET|POST /projects/:projectId/tasks`, `GET|PUT|DELETE /projects/:projectId/tasks/:taskId`, `POST /projects/:projectId/tasks/:taskId/subtasks`, `PUT|DELETE /projects/:projectId/tasks/:taskId/subtasks/:subTaskId` |
 | Notes | `GET|POST /projects/:projectId/notes`, `GET|PUT|DELETE /projects/:projectId/notes/:noteId` |

@@ -8,7 +8,7 @@
 | Area | State | Evidence |
 |---|---|---|
 | P0 foundation | Complete | Theme, API client (envelope + refresh-retry), stores, guards, UI kit |
-| P1 auth | Complete | Register + OTP verify, login, logout, forgot/reset, settings; `e2e/auth-flow.mjs` 48/48 |
+| P1 auth | Complete (2026-10 rewrite) | Register **with no verification step** (201 + cookies → `/projects`), login, logout, settings; OTP + forgot/reset + the whole mail stack removed; `e2e/auth-flow.mjs` 43/43 |
 | P2 projects | Complete | List, create, layout shell + tabs, settings, members management, role gating |
 | P3 tasks/kanban | Complete | Board 3 columns, create/detail modals, subtasks, optimistic moves, filters; `e2e/board-flow.mjs` 32/32 |
 | P4 notes | Complete (2026-10-07) | Real grid replaced the placeholder: 12/page pagination, pinned-first (server-mirrored sort), optimistic pin, role gating (create = admin/project_admin, edit/pin/delete = owner-or-admin); `e2e/notes-flow.mjs` 27/27 vs live **and** mock; `features/board/placeholder-data.js` deleted |
@@ -23,7 +23,7 @@
 **Mock mode entry points:** `client/.env.mock`, `client/src/lib/mock/`
 (`mock-data.js`, `mock-server.js`, `mock-smoke.mjs`), intercept in
 `client/src/api/client.js`, shared `client/src/api/errors.js`.
-Deliberately unmocked (real backend only): register, OTP, refresh, forgot/reset.
+Deliberately unmocked (real backend only): register, refresh.
 
 ## 2. Remaining ❌
 
@@ -34,7 +34,7 @@ banner + charts + docs) has shipped. What's left:
 
 | Area | Rows |
 |---|---|
-| Auth | AUTH-10, AUTH-12, AUTH-14, AUTH-15, AUTH-18, AUTH-19, AUTH-21 |
+| Auth | AUTH-10, AUTH-15, AUTH-19, AUTH-21 |
 | Projects | PRJ-02, PRJ-06..09 |
 | Members | MEM-01..08 |
 | Tasks | TASK-03 (attachments), TASK-07 (member role), TASK-09 (assignee filter combo), TASK-10 (dueDate round-trip) |
@@ -42,26 +42,36 @@ banner + charts + docs) has shipped. What's left:
 | Palette | PAL-05 (mouse selection + focus trap) |
 | Non-functional | NF-03 (themes), NF-04 (keyboard-only), NF-05 (375 px), NF-07 (404), NF-08 (envelope) |
 
-### 2.2 Backend tests (known gap — TESTCASES § 11)
+### 2.2 Backend tests (auth covered, rest still a gap — TESTCASES § 11)
 
-`jest` is configured (`jest.config.mjs`, `npm test`) but has **0 test files**
-and the binary isn't installed (`jest: not found`). Either:
-- install `jest` + `supertest` and land an auth/permissions suite, or
-- drop the `test` script + config until then (stop advertising a gate that fails).
+`npm test` runs a real supertest suite now: `src/routes/auth.test.js`
+(**12 assertions**, real app + real `MONGO_URI`) covering the 2026-10 auth
+rewrite — register signs the user in, no `devOtp`/`isEmailVerified` anywhere,
+login never 403s, the four removed e-mail endpoints answer 404, logout +
+`DELETE /auth/me` clean up after themselves.
 
-API rows stay curl-manual until this lands.
+Three blockers were fixed to get there: `jest.config.mjs` had a syntax error
+(missing comma on a duplicate `testMatch`) and an option Jest rejects
+(`extensionsToTreatAsEsm: ['.mjs']`), the `test` script needed
+`--experimental-vm-modules` for ESM, and the eslint config only granted jest
+globals to `tests/**` (not `**/*.test.js`). The old `src/seed/seed.test.js` was
+deleted — it asserted routes that never existed (`createApp`, `/api/v1/users`,
+`/api/v1/auth/seed`) and could never have run.
+
+Still curl-manual: permissions/seed suites.
 
 ### 2.3 Optional hardening (not required for v1)
 
 - Register the new E2E flows in a single `npm run test:e2e:all` runner (they're
   separate `node e2e/*.mjs` commands today).
-- Mock mode: register/OTP/refresh/forgot are deliberately unmocked — add only
+- Mock mode: register/refresh are deliberately unmocked — add only
   if UI demos need them.
 - Bundle: client build is 141 kB gzip (TESTCASES NF-02 budget says ≈125 kB) —
   trim if the budget matters; nothing lazy-loads today.
 
 ## 3. Known gaps (accepted for now — carried from TESTCASES § 11)
 
-- No backend unit/integration tests (jest configured, 0 files) — API rows stay curl-manual.
+- No backend unit/integration tests for permissions/seed (auth is covered:
+  `src/routes/auth.test.js`, 12 assertions) — those API rows stay curl-manual.
 - No client unit tests — coverage from Chrome E2E + mock smoke only.
 - Realtime/collaboration, comments, notifications: explicit non-goals for v1 (docs/01 § 4).

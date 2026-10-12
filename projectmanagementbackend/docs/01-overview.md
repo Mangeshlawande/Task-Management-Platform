@@ -12,14 +12,14 @@ Full OpenAPI docs at `/api-docs` (port comes from the backend `.env` — `8000` 
 
 | Fix | Detail |
 |---|---|
-| Email verification added (email OTP) | 6-digit code, sha256-hashed, 10-min expiry, 5 attempts, 60 s resend cooldown. Unverified accounts can't log in (`403 EMAIL_NOT_VERIFIED`); a successful code logs the user straight in. In dev the code is returned as `devOtp` + logged. |
-| Auth rate limiting | `express-rate-limit` mounted on register / login / verify-otp / resend-otp / forgot-password. Login and OTP checks count **failures only** (10 per 15 min per IP+account); mail-sending endpoints count every request (5–10 per window). Answers `429 { errors: ['RATE_LIMITED'] }` + `Retry-After`. Set `TRUST_PROXY` when running behind a proxy. |
-| Mailtrap → Ethereal | Zero-config dev mail: auto-created Ethereal test account, preview URL logged to console. Generic `SMTP_*` env vars for prod; `MAILTRAP_*` still honored as legacy fallback. |
+| Email verification **removed** (2026-10) | No OTP, no `isEmailVerified`, no SMTP: `POST /auth/register` creates the account and logs the user in immediately. `/auth/verify-otp` and `/auth/resend-otp` answer 404. |
+| Auth rate limiting | `express-rate-limit` mounted on register (10/hour per IP) and login (failures only, 10 per 15 min per IP+account). Answers `429 { errors: ['RATE_LIMITED'] }` + `Retry-After`. Set `TRUST_PROXY` when running behind a proxy. |
+| Mail subsystem **deleted** | `nodemailer`, `mailgen` and `src/utils/mail.js` are gone; no `SMTP_*` / `MAILTRAP_*` vars exist. There is no forgot-password flow either. |
 | Attachments revived | `multer` mounted on `POST /tasks` (`attachments`, max 5 × 1MB, jpeg/png/webp). Was dead code before. |
 | Swagger completed | 20 paths fully annotated, shared schemas/responses, refs verified. Previously empty. |
 | Error handling hardened | Mongoose ValidationError/CastError/duplicate-key/multer/JSON-parse errors → proper 4xx. |
-| Forgot-password hardened | Generic response — no user enumeration. |
-| Env template rewritten | `NODE_ENV`, `FRONTEND_URL`, `BCRYPT_SALT_ROUNDS`, `SMTP_*`; removed `[TEMPLATE]` junk + `SMTP_POST` typo era. |
+| Forgot-password **removed** | No reset endpoint, no email link — passwords change only from Settings while logged in. |
+| Env template rewritten | `NODE_ENV`, `BCRYPT_SALT_ROUNDS`, JWT expiries with **code fallbacks** (`1d`/`7d`); `FRONTEND_URL`/`SMTP_*` dropped along with the mail stack. |
 
 ## 2. What we will build (frontend)
 
@@ -28,9 +28,8 @@ A **Modern UI friendly SPA** consuming this API:
 | Phase | Feature | Key routes |
 |---|---|---|
 | P0 | App shell, theme (dark/light), API client, auth store, guards | all |
-| P1 | **Sign Up** + email OTP verification (starting point) | `/register`, `/verify-email` |
+| P1 | **Sign Up** (no verification step — instant sign-in) | `/register` |
 | P1 | Login, Logout | `/login` |
-| P1 | Forgot / Reset password | `/forgot-password`, `/reset-password/:token` |
 | P1 | Profile & change password | `/settings` |
 | P2 | Projects list + create + settings | `/projects`, `/projects/new` |
 | P2 | Members management | `/projects/:id/members` |

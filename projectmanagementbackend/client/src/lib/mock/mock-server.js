@@ -23,8 +23,9 @@
  *  notes:     list (paginated, pinned-first), create, update, delete
  *  dashboard: stats + memberCount + recentTasks
  *
- * Not mocked (deliberately): register/verify-email (OTP mail), forgot/reset
- * password, refresh-token (sessions never expire here), attachments upload.
+ * Not mocked (deliberately): register (no verification step — it only exists
+ * to create real accounts), refresh-token (sessions never expire here),
+ * attachments upload.
  */
 import { createMockDatabase, DEMO_PASSWORD } from './mock-data.js';
 import { ApiError } from '../../api/errors.js';
@@ -49,8 +50,8 @@ const fail = (status, message, fieldErrors) => {
   throw new ApiError(status, message, fieldErrors);
 };
 
-/** Array of error codes (INVALID_TOKEN, EMAIL_NOT_VERIFIED…) — the backend
- *  sends these as the `errors` array; ApiError carries them on `.codes`. */
+/** Array of error codes (INVALID_TOKEN…) — the backend sends these as the
+ *  `errors` array; ApiError carries them on `.codes`. */
 const failWithCodes = (status, message, codes) => {
   const error = new ApiError(status, message);
   error.codes = codes;
@@ -93,7 +94,6 @@ const publicUser = (u) => ({
   email: u.email,
   avatar: u.avatar,
   role: u.role,
-  isEmailVerified: u.isEmailVerified,
   createdAt: u.createdAt,
   updatedAt: u.updatedAt,
   id: u._id,
@@ -183,11 +183,6 @@ route('POST', '/api/v1/auth/login', ({ body }) => {
   );
   if (!user) fail(404, 'User not found');
   if (user.password !== password) fail(401, 'Invalid credentials');
-  if (user.isEmailVerified === false) {
-    failWithCodes(403, 'Please verify your email address before logging in', [
-      'EMAIL_NOT_VERIFIED',
-    ]);
-  }
   db.session = { userId: user._id };
   return ok(200, { user: publicUser(user), accessToken: 'mock-access', refreshToken: 'mock-refresh' }, 'User logged in successfully');
 });

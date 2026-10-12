@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, KeyRound, Eye, EyeOff, ShieldCheck, LogOut } from 'lucide-react';
+import { KeyRound, Eye, EyeOff, ShieldCheck, LogOut } from 'lucide-react';
 import { ApiError } from '../../api/client.js';
 import { authApi } from '../../api/auth.js';
 import { useAuthStore } from '../../stores/authStore.js';
@@ -38,11 +38,6 @@ export function SettingsPage() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const [showPasswords, setShowPasswords] = useState(false);
   const [formError, setFormError] = useState(null);
-
-  // A missing `isEmailVerified` means the account predates OTP verification and
-  // the backend treats it as verified (docs/04 § 1) — mirror that rule exactly
-  // instead of showing a scary "not verified" for old accounts.
-  const emailVerified = user?.isEmailVerified !== false;
 
   const form = useForm(initial, validate, async (values) => {
     setFormError(null);
@@ -86,23 +81,7 @@ export function SettingsPage() {
               <p className="truncate text-sm text-muted dark:text-dark-muted">
                 @{user?.username} · {user?.email}
               </p>
-              <Badge
-                variant={emailVerified ? 'success' : 'warning'}
-                className="gap-1"
-              >
-                {emailVerified ? (
-                  <ShieldCheck className="h-3 w-3" aria-hidden />
-                ) : (
-                  <AlertCircle className="h-3 w-3" aria-hidden />
-                )}
-                {emailVerified ? 'Email verified' : 'Email not verified'}
-              </Badge>
             </div>
-            {!emailVerified && (
-              <p className="mt-1 text-xs text-warning">
-                Verify this address with the code sent at sign-up before your next login.
-              </p>
-            )}
           </div>
         </div>
       </section>

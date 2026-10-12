@@ -43,31 +43,31 @@ export function createMockDatabase() {
   db.users.push(
     {
       _id: id('U'), username: 'campadmin', email: 'admin@projectcamp.dev',
-      fullName: 'Camp Admin', password, role: 'admin', isEmailVerified: true,
+      fullName: 'Camp Admin', password, role: 'admin',
       avatar: { url: 'https://placehold.co/150x150', localPath: '' },
       createdAt: ago(40), refreshToken: null,
     },
     {
       _id: id('U'), username: 'maya', email: 'maya@projectcamp.dev',
-      fullName: 'Maya Sharma', password, role: 'member', isEmailVerified: true,
+      fullName: 'Maya Sharma', password, role: 'member',
       avatar: { url: 'https://placehold.co/150x150', localPath: '' },
       createdAt: ago(39), refreshToken: null,
     },
     {
       _id: id('U'), username: 'leo', email: 'leo@projectcamp.dev',
-      fullName: 'Leo Fernandes', password, role: 'member', isEmailVerified: true,
+      fullName: 'Leo Fernandes', password, role: 'member',
       avatar: { url: 'https://placehold.co/150x150', localPath: '' },
       createdAt: ago(38), refreshToken: null,
     },
     {
       _id: id('U'), username: 'priya', email: 'priya@projectcamp.dev',
-      fullName: 'Priya Nair', password, role: 'member', isEmailVerified: true,
+      fullName: 'Priya Nair', password, role: 'member',
       avatar: { url: 'https://placehold.co/150x150', localPath: '' },
       createdAt: ago(37), refreshToken: null,
     },
     {
       _id: id('U'), username: 'arjun', email: 'arjun@projectcamp.dev',
-      fullName: 'Arjun Kale', password, role: 'member', isEmailVerified: true,
+      fullName: 'Arjun Kale', password, role: 'member',
       avatar: { url: 'https://placehold.co/150x150', localPath: '' },
       createdAt: ago(36), refreshToken: null,
     },

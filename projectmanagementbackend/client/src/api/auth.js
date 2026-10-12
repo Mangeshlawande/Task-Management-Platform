@@ -2,6 +2,8 @@
 import { api } from './client.js';
 
 export const authApi = {
+  /** Creates the account and logs the user in — no verification step.
+   *  Returns { user, accessToken, refreshToken } with cookies already set. */
   register: ({ email, username, password, fullName }) =>
     api.post('/api/v1/auth/register', {
       email,
@@ -17,24 +19,10 @@ export const authApi = {
       ...(identifier.includes('@') ? { email: identifier.toLowerCase() } : { username: identifier.toLowerCase() }),
     }),
 
-  /** Consumes the emailed 6-digit code. On success the API also logs the
-   *  user in (httpOnly cookies) — data = { user, accessToken, refreshToken }. */
-  verifyEmailOtp: ({ email, otp }) =>
-    api.post('/api/v1/auth/verify-otp', { email: email.toLowerCase(), otp }),
-
-  /** Returns { devOtp } outside production so the code can be shown on screen. */
-  resendEmailOtp: (email) =>
-    api.post('/api/v1/auth/resend-otp', { email: email.toLowerCase() }),
-
   me: () => api.get('/api/v1/auth/me'),
 
   logout: () => api.post('/api/v1/auth/logout'),
 
   changePassword: ({ oldPassword, newPassword }) =>
     api.post('/api/v1/auth/change-password', { oldPassword, newPassword }),
-
-  forgotPassword: (email) => api.post('/api/v1/auth/forgot-password', { email }),
-
-  resetPassword: (resetToken, newPassword) =>
-    api.post(`/api/v1/auth/reset-password/${resetToken}`, { newPassword }),
 };

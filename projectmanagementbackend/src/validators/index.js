@@ -55,32 +55,6 @@ const userChangeCurrentPasswordValidator = () => [
   body('newPassword').notEmpty().isLength({ min: 8 }),
 ];
 
-const userForgotPasswordValidator = () => [
-  body('email').notEmpty().isEmail(),
-];
-
-const userResetForgotPasswordValidator = () => [
-  body('newPassword').notEmpty().isLength({ min: 8 }),
-];
-
-// Email verification is a 6-digit OTP (see EmailOtpPolicy in utils/constants)
-const userVerifyEmailOtpValidator = () => [
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Invalid email'),
-
-  body('otp')
-    .trim()
-    .notEmpty().withMessage('Verification code is required')
-    .isNumeric().withMessage('Code must be 6 digits')
-    .isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits'),
-];
-
-const userResendEmailOtpValidator = () => [
-  body('email').trim().notEmpty().isEmail().withMessage('Valid email required'),
-];
-
 //
 // PROJECT VALIDATORS
 //
@@ -185,10 +159,6 @@ export {
   userRegisterValidator,
   userLoginValidator,
   userChangeCurrentPasswordValidator,
-  userForgotPasswordValidator,
-  userResetForgotPasswordValidator,
-  userVerifyEmailOtpValidator,
-  userResendEmailOtpValidator,
   createNoteValidator,
   updateNoteValidator,
   createTaskValidator,

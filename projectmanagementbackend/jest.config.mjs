@@ -93,8 +93,6 @@ const config = {
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   // moduleNameMapper: {},
 
-  // ESM test files must be transformed
-  extensionsToTreatAsEsm: ['.mjs'],
 
   // Activates notifications for test results
   // notify: false,
@@ -148,9 +146,6 @@ const config = {
 
   // The test environment that will be used for testing
   // testEnvironment: 'jest-environment-node',
-
-  // Where Jest looks for test files
-  testMatch: ['**/*.test.mjs']
 
   // Options that will be passed to the testEnvironment
 

@@ -2,12 +2,12 @@
 
 > The complete authentication playbook between SPA and backend. Sign Up is the first feature we build; every other flow reuses this machinery.
 
-## 1. Sign Up + email verification (the starting point)
+## 1. Sign Up (no verification step)
 
-Verification is an **email OTP** — a 6-digit code, not a magic link. Rationale:
-a code survives mail clients that rewrite or prefetch links, needs no second
-browser tab, and the same `sendEmail`/Mailgen machinery already powers password
-reset. The code is stored **hashed (sha256)** and is valid for 10 minutes.
+There is **no e-mail verification and no e-mail anywhere in this app** — no
+OTP, no SMTP config, no forgot-password link. Sign-up creates the account and
+logs the user in the same request (product decision, 2026-10: the OTP flow
+and the whole mail subsystem were removed).
 
 ```
 ┌────────────┐   POST /auth/register        ┌────────────┐
@@ -15,18 +15,16 @@ reset. The code is stored **hashed (sha256)** and is valid for 10 minutes.
 │ (form)     │   { email, username,         │  validates │
 │            │     password, fullName }     │  dedupes   │
 │            │                              │  creates   │
-│            │                              │  isEmailVerified = false
-│            │                              │  sends OTP │
-│            │ ◀──────────────────────────  │  (by email)│
-│            │   201 { user, devOtp? }      └────────────┘
-└─────┬──────┘
-      │ navigate('/verify-email', { state: { email, devOtp } })
+│            │                              │  mints JWTs│
+│            │ ◀──────────────────────────  │            │
+│            │   201 { user, accessToken,   │            │
+│            │         refreshToken }       │            │
+│            │   + httpOnly cookies set     │            │
+└─────┬──────┘                              └────────────┘
+      │ authStore.setUser(data.user)
+      │ navigate('/projects', { replace: true })
       ▼
-┌────────────────┐  POST /auth/verify-otp { email, otp }
-│ VerifyEmailPage│ ─────────────────────────────▶ backend
-│ 6 code boxes   │ ◀── 200 { user, accessToken, refreshToken }
-│ re-send (30s)  │     + httpOnly cookies set → user IS logged in
-└────────────────┘  → authStore.setUser(user) → /projects
+   /projects  — account is live, no gate
 ```
 
 **Client behavior:**
@@ -35,50 +33,25 @@ reset. The code is stored **hashed (sha256)** and is valid for 10 minutes.
 - Submit → disable button, show spinner
 - `409` → field error under email/username ("already exists")
 - `400` → map `errors` object to fields
-- Success → toast + `navigate('/verify-email', { state: { email, devOtp } })`
+- Success → seed `authStore` from `data.user`, toast, `navigate('/projects')`
 
-**Verification rules (server):**
+**Server behavior:** `registerUser` creates the `User`, then calls the same
+`generateAccessAndRefreshToken` helper login uses and sets both cookies before
+answering `201`. The response shape is therefore identical to login's
+(`{ user, accessToken, refreshToken }`) minus the message.
 
-| Rule | Value |
-|---|---|
-| Code shape | 6 digits, `crypto.randomInt` (CSPRNG) |
-| Stored as | `sha256(code)` — plaintext is never persisted |
-| Lifetime | 10 minutes (`emailVerificationOtpExpiry`) |
-| Wrong-code limit | 5 attempts, then the code is dead and a new one must be requested |
-| Resend | 60 s cooldown (server) + 30 s UI countdown |
-
-**Unverified accounts cannot log in.** `POST /auth/login` answers
-`403 { errors: ['EMAIL_NOT_VERIFIED'] }`; `LoginPage` catches that marker and
-routes the user to `/verify-email` (email pre-filled when the identifier was
-an email). Verifying successfully returns tokens *and* sets cookies, so the
-user lands in the app instead of retyping their password.
-
-> **Backwards compatibility:** `isEmailVerified` has **no schema default** on
-> purpose. Accounts created before this feature have no stored value and are
-> therefore treated as verified — nobody gets locked out. The bootstrap admin
-> (`createAdmin.js`) is created with `isEmailVerified: true` for the same reason.
-
-> **Local development:** when `NODE_ENV !== 'production'` the code is both
-> logged to the backend console and returned as `data.devOtp`, and
-> `VerifyEmailPage` renders it in a "development mode" panel. This keeps the
-> flow testable when SMTP delivery is slow or unavailable. Set
-> `NODE_ENV=production` to remove it completely.
-
-**Enumeration note:** `POST /auth/resend-otp` returns 200 for unknown emails,
-but `429` while a known-unverified account is inside its cooldown window —
-account existence is already visible via the login `403` marker, so this is
-an accepted trade-off.
-
+**User shape has no verification field.** `isEmailVerified`, the hashed OTP
+fields and the forgot-password token fields were removed from
+`src/models/user.models.js`; older documents that still carry them are simply
+ignored by Mongoose (strict schema) and no code reads them.
 
 ## 2. Login
 
 ```
 LoginPage ── POST /auth/login ──▶ backend
                  │  validates user+password
-                 │  user.isEmailVerified === false?
-                 │     └── 403 ['EMAIL_NOT_VERIFIED'] → /verify-email
-                 │  Set-Cookie: accessToken (httpOnly, 1d)
-                 │  Set-Cookie: refreshToken (httpOnly, 7d)
+                 │  Set-Cookie: accessToken (httpOnly)
+                 │  Set-Cookie: refreshToken (httpOnly)
                  ◀── 200 { user, accessToken, refreshToken }
 authStore.setUser(user) → navigate to redirect target or /projects
 ```
@@ -86,7 +59,7 @@ authStore.setUser(user) → navigate to redirect target or /projects
 - Backend accepts **email or username** in the same field strategy: UI gives one
   "Email or username" input.
 - `401`/`404` → generic "Invalid credentials" message (don't reveal which part failed).
-- `403` → email not verified yet (see § 1) — the only 403 login can return.
+- Login never returns `403` — there is no verification gate to trip.
 
 ## 3. Session hydration (every app load)
 
@@ -125,18 +98,19 @@ User clicks logout → POST /auth/logout (server clears cookies + revokes refres
                   → navigate('/login')
 ```
 
-## 6. Forgot / Reset password
+## 6. Password recovery — deliberately absent
+
+There is **no forgot-password flow** (no endpoint, no route, no e-mail to send
+a link from). Passwords change in exactly one place:
 
 ```
-ForgotPasswordPage ── POST /auth/forgot-password { email } ──▶ always 200
-                   ◀── "If that email exists, we sent a link"  (never confirm existence)
-
-User opens email link:  {FRONTEND_URL}/reset-password/{unHashedToken}
-   └─ ResetPasswordPage reads :token from route
-        └─ POST /auth/reset-password/:token { newPassword }
-             ├─ 200 → toast "Password updated" → navigate /login
-             └─ 400 → "Link is invalid or expired" (+ "request a new one" link)
+SettingsPage (logged in) ── POST /auth/change-password ──▶ § 7
 ```
+
+A user who forgot their password has to ask an admin to reset it out of band
+(or the bootstrap admin can be used). `/forgot-password` and
+`/reset-password/:token` are gone from the router, so those URLs render the
+SPA's 404 page; the API answers `404` JSON for the old `/auth/*` paths.
 
 ## 7. Change password (settings page)
 
@@ -150,7 +124,7 @@ POST /auth/change-password { oldPassword, newPassword }
 
 | Route | Guard | Behavior when not met |
 |---|---|---|
-| `/register`, `/login`, `/forgot-password`, `/reset-password/:token`, `/verify-email` | `<RedirectIfAuthed>` | Already logged in → `/projects` |
+| `/register`, `/login` | `<RedirectIfAuthed>` | Already logged in → `/projects` |
 | `/projects/**` (all app pages) | `<RequireAuth>` | Not logged in → `/login` (preserve `from` for post-login redirect) |
 
 ## 9. Store shape (`authStore`)
@@ -178,16 +152,10 @@ and a `Retry-After` header — so every auth form already renders it through
 | Endpoint | Key | Limit | Counts |
 |---|---|---|---|
 | `POST /auth/login` | IP + email/username | 10 / 15 min | failures only |
-| `POST /auth/verify-otp` | IP + email | 10 / 15 min | failures only |
-| `POST /auth/resend-otp` | IP + email | 5 / 15 min | every request |
-| `POST /auth/forgot-password` | IP + email | 5 / 15 min | every request |
 | `POST /auth/register` | IP | 10 / hour | every request |
 
-Successful logins and correct codes are skipped (`skipSuccessfulRequests`), so
-normal use never consumes the budget — only guessing does. These limits are
-separate from the per-account OTP rules in § 1 (5 wrong codes burn the code, 60 s
-resend cooldown) and from the enumeration-safe 200s on `/auth/resend-otp` and
-`/auth/forgot-password`.
+Successful logins are skipped (`skipSuccessfulRequests`), so normal use never
+consumes the budget — only guessing does.
 
 **Deployment notes**
 

@@ -20,9 +20,9 @@ Project Camp Backend is a RESTful API service designed to support collaborative 
 
 #### 3.1 User Authentication & Authorization
 
-- **User Registration:** Account creation with email verification via a 6-digit OTP (hashed at rest, 10-minute expiry, 5 attempts, resend with cooldown)
+- **User Registration:** Account creation with **no verification step** — the account is usable (and signed in) immediately; there is no e-mail confirmation anywhere (decision 2026-10-12, replacing the earlier 6-digit OTP)
 - **User Login:** Secure authentication with JWT tokens (email or username)
-- **Password Management:** Change password, forgot/reset password functionality
+- **Password Management:** Change password from Settings while logged in (no forgot/reset flow — it needs e-mail)
 - **Token Management:** Access token refresh mechanism
 - **Role-Based Access Control:** Three-tier permission system (Admin, Project Admin, Member)
 
@@ -84,8 +84,9 @@ Project Camp Backend is a RESTful API service designed to support collaborative 
 - `DELETE /me` - Delete account (secured)
 - `POST /change-password` - Change user password (secured)
 - `POST /refresh-token` - Refresh access token
-- `POST /forgot-password` - Request password reset
-- `POST /reset-password/:resetToken` - Reset forgotten password
+
+**Removed auth routes** (answer `404`): `POST /forgot-password`,
+`POST /reset-password/:resetToken`, `POST /verify-otp`, `POST /resend-otp`.
 
 **Project Routes** (`/api/v1/projects/`)
 
@@ -157,7 +158,6 @@ Project Camp Backend is a RESTful API service designed to support collaborative 
 - httpOnly cookie token delivery (Bearer header also supported)
 - Role-based authorization middleware per project
 - Input validation on all endpoints
-- Enumeration-safe forgot-password flow (generic responses)
 - File upload security with Multer middleware (type + size limits)
 - Centralized error handler mapping validation/duplicate/cast errors to 4xx responses
 - CORS configuration for cross-origin requests
@@ -171,9 +171,11 @@ Project Camp Backend is a RESTful API service designed to support collaborative 
 
 ## 7. Email
 
-- Password reset emails via generic SMTP (`SMTP_*` env vars)
-- Zero-config development mode: auto-created Ethereal test account with console preview URL
-- Mailtrap credentials supported as legacy fallback
+**Out of scope — deliberately.** The app sends no e-mail:
+
+- No OTP verification, no password-reset links, no SMTP dependency at all
+- `nodemailer` / `mailgen` and `src/utils/mail.js` are not part of the stack
+- Sign-up has no confirmation step; forgot-password does not exist
 
 ### 8. Success Criteria
 
@@ -182,5 +184,5 @@ Project Camp Backend is a RESTful API service designed to support collaborative 
 - Hierarchical task and subtask organization
 - Role-based access control implementation
 - File attachment capability for enhanced collaboration
-- Password reset and email verification email system (OTP delivery via SMTP, Ethereal fallback in dev)
+- Password-free sign-up path: registration immediately yields a working session (no e-mail verification)
 - Comprehensive API documentation through Swagger UI at /api-docs

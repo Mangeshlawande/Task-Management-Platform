@@ -3,6 +3,7 @@ import { UserRound, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { authApi } from '../../api/auth.js';
 import { ApiError } from '../../api/client.js';
+import { useAuthStore } from '../../stores/authStore.js';
 import { useForm } from '../../lib/useForm.js';
 import {
   validateEmail,
@@ -26,11 +27,10 @@ const validate = (v) => {
 
 /**
  * P1.1 + P1.2 — Sign Up.
- * Contract: POST /auth/register → 201 { user, devOtp? }. The account starts
- * unverified — the user must enter the emailed 6-digit code on /verify-email
- * before they can log in (docs/04 § 1).
+ * Contract: POST /auth/register → 201 { user, accessToken, refreshToken }.
+ * No verification step: the account is live immediately and the API sets the
+ * auth cookies, so we seed the store and land on /projects.
  * 400 → field errors; 409 → inline field error under the offending identifier.
- * Success → /verify-email with the email (and devOtp, if the API echoed it).
  */
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -41,14 +41,11 @@ export function RegisterPage() {
     setFormError(null);
     try {
       const data = await authApi.register(values);
-      toast.success('Account created — check your email for your verification code.');
-      navigate('/verify-email', {
-        replace: true,
-        state: {
-          email: values.email.trim().toLowerCase(),
-          devOtp: data?.devOtp,
-        },
-      });
+      // Cookies are already set by the API — hydrate the session so the
+      // protected router doesn't bounce us back through a /me round-trip.
+      if (data?.user) useAuthStore.getState().setUser(data.user);
+      toast.success('Account created — welcome aboard!');
+      navigate('/projects', { replace: true });
     } catch (err) {
       if (!(err instanceof ApiError)) {
         setFormError('Something went wrong. Please try again.');

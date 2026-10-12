@@ -45,20 +45,7 @@ export function LoginPage() {
         toast.success(`Welcome back${user?.fullName ? ', ' + user.fullName : ''}!`);
         navigate(location.state?.from || '/projects', { replace: true });
       } catch (err) {
-        if (err instanceof ApiError && err.status === 403) {
-          // Backend marker: EMAIL_NOT_VERIFIED (docs/03 § Auth). Send the user
-          // to the code screen; a username login can't prefill the email.
-          toast.info('Verify your email to continue.');
-          navigate('/verify-email', {
-            replace: true,
-            state: {
-              email: values.identifier.includes('@')
-                ? values.identifier.trim().toLowerCase()
-                : '',
-              from: location.state?.from,
-            },
-          });
-        } else if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
           // Don't reveal which part failed (docs/04 § 2)
           setFormError('Invalid credentials');
         } else if (err instanceof ApiError && Object.keys(err.fieldErrors).length) {
@@ -150,10 +137,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <div className="mt-6 flex items-center justify-between text-sm">
-          <Link to="/forgot-password" className="font-medium text-primary hover:underline">
-            Forgot your password?
-          </Link>
+        <div className="mt-6 flex items-center justify-end text-sm">
           <Link to="/register" className="font-medium text-primary hover:underline">
             Create an account
           </Link>

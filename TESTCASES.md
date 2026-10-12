@@ -18,7 +18,7 @@ cd projectmanagementbackend && npm run dev
 # 1) lint gate (repo root or backend dir)
 cd projectmanagementbackend && npm run lint
 
-# 2) E2E — full auth + projects flow in real Chrome (48 assertions,
+# 2) E2E — full auth + projects flow in real Chrome (43 assertions,
 #    creates an ephemeral user and deletes it afterwards, screenshots
 #    land in client/e2e/shots/)
 cd projectmanagementbackend/client && npm run test:e2e
@@ -41,7 +41,8 @@ node e2e/mock-mode.mjs             # browser smoke — 6
 # 3) client production build gate
 cd projectmanagementbackend/client && npm run build
 
-# 4) API smoke — manual curl checks, see §3 (auth) for the commands
+# 4) Backend contract tests (supertest, needs MONGO_URI reachable)
+cd projectmanagementbackend && npm test   # auth suite, 12 assertions
 ```
 
 **Regression gate before every commit:** `backend lint` → `client lint` →
@@ -61,26 +62,26 @@ changed. All must be green.
 | ID | Case | Layer | Expected result | Status |
 |---|---|---|---|---|
 | AUTH-01 | Register with invalid email/short password | E2E | Inline field errors, no request fired | ✅ |
-| AUTH-02 | Register with valid data | E2E | 201 → redirect `/verify-email` with email prefilled | ✅ |
+| AUTH-02 | Register with valid data | E2E | 201 + cookies → **straight to `/projects`** (no verification step) | ✅ |
 | AUTH-03 | Register duplicate username/email | API | 409 → mapped to the field, not a toast | ✅ |
-| AUTH-04 | Verify email with wrong OTP | E2E | Rejected, attempts counter decrements, recovery path shown | ✅ |
-| AUTH-05 | Verify email with correct OTP | E2E | Account activated **and** user logged in → `/projects` | ✅ |
-| AUTH-06 | Login before verifying email | API | `403 ['EMAIL_NOT_VERIFIED']` → `/verify-email` | ✅ |
+| AUTH-04 | `POST /auth/verify-otp` / `resend-otp` | API | `404` — OTP endpoints removed | ✅ |
+| AUTH-05 | `POST /auth/forgot-password` / `reset-password/:t` | API | `404` — e-mail flows removed | ✅ |
+| AUTH-06 | `/forgot-password`, `/reset-password/:t`, `/verify-email` URLs | E2E | SPA 404 page (routes removed from the router) | ✅ |
 | AUTH-07 | Login with wrong password | E2E | Generic error, no user enumeration | ✅ |
 | AUTH-08 | Login (email or username) with good password | E2E | 200 + httpOnly cookies → `/projects` | ✅ |
 | AUTH-09 | Session survives hard reload | E2E | `GET /auth/me` refreshes, no bounce to `/login` | ✅ |
 | AUTH-10 | 401 → refresh-token rotation → retried request | Manual | One refresh only (no loop), original request replays | ☐ |
 | AUTH-11 | Logout | E2E | Cookies cleared, `/login`, guard blocks `/projects` | ✅ |
-| AUTH-12 | Forgot password with unknown email | API | Neutral 200 (no enumeration) | ☐ |
-| AUTH-13 | Forgot password with known email | E2E | Neutral confirmation + resend cooldown | ✅ |
-| AUTH-14 | Reset via emailed link | API | 200, token is **single-use** (reuse → 400) | ☐ |
-| AUTH-15 | Reset via expired/garbage token | Manual | Friendly expired state, not a crash | ☐ |
+| AUTH-12 | Settings shows no email-verification UI | E2E | No "Email verified" badge anywhere on the profile card | ✅ |
+| AUTH-13 | Login right after register (fresh account) | E2E | 200 — no verification gate, no 403 | ✅ |
+| AUTH-14 | Register response carries no `devOtp` / no mail sent | API | `data` = `{ user, accessToken, refreshToken }` only | ✅ |
+| AUTH-15 | `/forgot-password` URL after deploy | Manual | 404 page, not a crash | ☐ |
 | AUTH-16 | Change password with wrong current | E2E | Inline field error on `currentPassword` | ✅ |
 | AUTH-17 | Change password success | E2E | Forced re-login everywhere; old password rejected | ✅ |
-| AUTH-18 | Resend OTP within 60 s cooldown | API | Blocked with countdown honoured | ☐ |
-| AUTH-19 | OTP brute force (6 wrong codes) | API | Locked after 5 attempts, 429/`RATE_LIMITED` paths intact | ☐ |
+| AUTH-18 | Login/refresh with `*_EXPIRY` env unset (Render shape) | API | 200/201 — code falls back to `1d`/`7d`, never 500 | ✅ |
+| AUTH-19 | Rate limit: >10 failed logins/15 min per IP+account | API | `429 { errors: ['RATE_LIMITED'] }` + `Retry-After` | ☐ |
 | AUTH-20 | `DELETE /auth/me` (delete account) | E2E | User + memberships + owned projects/tasks/subtasks/notes gone | ✅ |
-| AUTH-21 | Rate limit: >5 registers/min per IP | API | `429 { errors: ['RATE_LIMITED'] }` + `Retry-After` | ☐ |
+| AUTH-21 | Rate limit: >10 registers/hour per IP | API | `429 { errors: ['RATE_LIMITED'] }` + `Retry-After` | ☐ |
 
 ## 4. Projects (`client/src/features/projects/`)
 
@@ -167,13 +168,14 @@ changed. All must be green.
 
 ## 11. Known gaps (accepted for now)
 
-- **No backend unit/integration tests** — `jest` is configured
-  (`jest.config.mjs`, `npm test`) but contains **0 test files** and the
-  `jest` binary is not installed (`npm test` → `jest: not found`); API rows
-  above are curl-manual until a supertest suite lands.
+- **Backend tests now exist for auth** — `npm test` runs
+  `src/routes/auth.test.js` (supertest + real DB, **12 assertions**): register
+  signs the user in, no `devOtp`/`isEmailVerified`, login never 403s, removed
+  e-mail endpoints 404, logout + account deletion self-clean. Permissions and
+  seed flows are still curl-manual.
 - **No client unit tests** — coverage comes from the Chrome E2E suites only
-  (auth 48, board 32, notes 27, palette 12, banner 10, dashboard 16, mock 6
-  assertions — all green as of 2026-10-07).
+  (auth 43, board 30, notes 27, palette 12, banner 10, dashboard 16, mock 6
+  assertions — all green as of 2026-10-12).
 
 ## 12. Release checklist
 

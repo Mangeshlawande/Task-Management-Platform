@@ -1,8 +1,9 @@
 # Project Camp — Fixes Applied
 
-This document summarizes every change made to the original codebase. Both
-the backend (`projectmanagementbackend/`) and frontend (`project-code/`)
-now agree on the same API contract and have been built/type-checked
+This document summarizes every change made to the original codebase. The
+backend (`projectmanagementbackend/`) and the frontend
+(`projectmanagementbackend/client/`, originally a separate `project-code/`
+service) now agree on the same API contract and have been built/type-checked
 successfully.
 
 ## How to run 
@@ -229,6 +230,67 @@ locally-served build are allowed.
   backend's `[{ project, role }]` shape into `Project[]` with `.role`
   merged in, matching what `projects.tsx` and `dashboard.tsx` already
   expected.
+
+---
+
+## 11. Auth rewrite — no mail, no verification step (2026-10-12)
+
+**Product decision:** drop e-mail verification entirely and remove every piece
+of the mail subsystem, so auth works in production with zero mail config.
+
+### Backend
+
+- **Removed endpoints** (now `404` JSON): `POST /auth/verify-otp`,
+  `POST /auth/resend-otp`, `POST /auth/forgot-password`,
+  `POST /auth/reset-password/:resetToken`, together with their controllers,
+  express-validator chains and rate limiters (`verifyOtpLimiter`,
+  `resendOtpLimiter`, `forgotPasswordLimiter`).
+- **Mail deleted:** `src/utils/mail.js` gone; `nodemailer` + `mailgen` removed
+  from `package.json`/lockfile; no `SMTP_*`, `MAILTRAP_*`, `MAIL_FROM` or
+  `FRONTEND_URL` reads remain anywhere in `src/`.
+- **`POST /auth/register` now logs the user in:** it mints the token pair and
+  sets both httpOnly cookies, answering `201 { user, accessToken, refreshToken }`
+  — same shape as login, so the client seeds the store and lands on `/projects`.
+- **`User` model:** dropped `isEmailVerified`, `emailVerificationOtp*`,
+  `forgotPasswordToken/Expiry`, the `generateTemporaryToken` and OTP methods,
+  and the `EmailOtpPolicy` constant. Old documents that still carry those
+  fields are ignored (strict schema) and nothing reads them.
+- **Login** no longer has the `403 EMAIL_NOT_VERIFIED` gate.
+- **JWT expiry fallback (fixes the Render login 500):**
+  `jwt.sign({ expiresIn: process.env.ACCESS_TOKEN_EXPIRY })` **throws** when the
+  var is unset — which is always the case on Render, where the gitignored `.env`
+  doesn't exist. `user.models.js` now falls back to `1d` / `7d`, and
+  `render.yaml` pins `ACCESS_TOKEN_EXPIRY` / `REFRESH_TOKEN_EXPIRY`.
+- **Bootstrap admin:** `createAdmin.js` reads `ADMIN_USERNAME/EMAIL/PASSWORD`
+  with **code defaults** (`admin` / `admin@example.com` / `admin123`) — those
+  values previously existed only in `.ENV.SAMPLE`, which is never loaded on
+  Render, so the bootstrap silently failed there.
+- `render.yaml`: SMTP/`MAIL_FROM`/`FRONTEND_URL` vars removed; expiry vars added.
+- `.ENV.SAMPLE`: mail section deleted, admin comment updated.
+
+### Frontend (`client/`)
+
+- Deleted `VerifyEmailPage.jsx`, `ForgotPasswordPage.jsx`,
+  `ResetPasswordPage.jsx`; removed their routes from `app/router.jsx` (those
+  URLs now render the SPA 404 page).
+- `RegisterPage` → on 201 it calls `authStore.setUser(data.user)` and navigates
+  to `/projects` (no more `/verify-email` hand-off).
+- `LoginPage` → dropped the `403 → /verify-email` branch and the
+  "Forgot your password?" link.
+- `SettingsPage` → dropped the "Email verified" badge and the verify warning.
+- `api/auth.js` → removed `verifyEmailOtp`, `resendEmailOtp`, `forgotPassword`,
+  `resetPassword`.
+- Mock API (`lib/mock/mock-server.js`, `mock-data.js`) mirrors the contract:
+  no `isEmailVerified` anywhere, no `EMAIL_NOT_VERIFIED` login gate.
+
+### Tests & docs
+
+- `client/e2e/auth-flow.mjs` (43 assertions): register now expects
+  `/projects`, plus a new block asserting all four removed endpoints answer
+  `404` and the old `/forgot-password` URL renders the 404 page.
+- `client/e2e/board-flow.mjs`: sign-up step no longer walks the OTP dev panel.
+- `TESTCASES.md` § 3 rewritten for the new auth matrix; `docs/01–08`,
+  `AGENTS.md`, both READMEs and `docs/06` session log updated.
 
 ---
 

@@ -12,12 +12,12 @@
 
 1. **Docs are the contract.** `docs/03-api-contract.md` must match reality. Any endpoint/payload change: update backend → update doc → then client.
 2. **Response envelope.** Controllers return `new ApiResponse(status, data, message)`. Errors via `throw new ApiError(status, message, errors)`.
-3. **Auth.** httpOnly cookies (`accessToken`, `refreshToken`) + Bearer fallback. Never expose tokens to JS storage. Email verification is an **email OTP** (`isEmailVerified` + hashed 6-digit code, see `docs/04` § 1) — changing the strategy is a product decision, so update the docs first.
+3. **Auth.** httpOnly cookies (`accessToken`, `refreshToken`) + Bearer fallback. Never expose tokens to JS storage. There is **no e-mail verification and no mail at all**: `POST /auth/register` creates the account and logs the user in immediately (see `docs/04` § 1), and there is no forgot-password flow. Changing this is a product decision — update the docs first.
 4. **Authorization.** Project-level checks go through `validateProjectPermission([...roles])`. Object-level checks (owner) live in controllers.
 5. **Validation.** express-validator chains in `src/validators/index.js`, always followed by `validate` middleware. Field errors land in `errors: { field: [msgs] }`.
 6. **Async handlers.** Wrap controllers in `asyncHandler`. Never leave a floating promise.
 7. **Errors.** Central `errorHandler` maps Mongoose/multer/JSON errors to 4xx. Throw typed ApiErrors — don't res.status inside catch blocks.
-8. **Mail.** Via `sendEmail` util. Dev uses auto-configured Ethereal (preview URL in console). No Mailtrap-specific code — legacy env vars supported for compatibility only.
+8. **No mail.** `src/utils/mail.js`, `nodemailer` and `mailgen` are gone, and no `SMTP_*` env vars exist. Do not reintroduce e-mail (verification, invites, notifications) without a product decision and a stack-table update.
 9. **No new runtime dependencies** (backend or client) without updating the stack table in `docs/02-architecture.md` and getting an OK.
 
 ## Code style

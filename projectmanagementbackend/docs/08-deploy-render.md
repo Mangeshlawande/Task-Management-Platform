@@ -38,9 +38,8 @@ Browser  ──GET/POST /api/v1/*──────▶  Express API (same origin
    - Create DB user + copy the connection string (`mongodb+srv://...`).
    - Network Access → **Add IP Address → 0.0.0.0/0** (Render egress IPs are
      dynamic; Atlas blocks new IPs otherwise — the #1 first-deploy failure).
-3. **SMTP credentials** (Gmail app-password, Resend, Brevo, …). Required, not
-   optional: `NODE_ENV=production` strips the `devOtp` fallback from API
-   responses, so signups can only be verified via a real OTP email.
+2. **No mail setup.** The app sends no email (no OTP, no reset links), so
+   skip SMTP entirely — don't add `SMTP_*` vars anywhere.
 
 ## 2. Deploy (Blueprint — recommended)
 
@@ -63,11 +62,9 @@ copy the Build/Start commands and env vars from `render.yaml` by hand.
 | Key | Value |
 |---|---|
 | `MONGO_URI` | your Atlas `mongodb+srv://…` string |
-| `FRONTEND_URL` | `https://<your-service>.onrender.com` — used to build verification/reset email links |
-| `CORS_ORIGIN` | same URL (defensive; same-origin requests don't need CORS) |
-| `SMTP_HOST/PORT/USER/PASS` | your SMTP provider (e.g. `smtp.resend.com`, `587`) |
-| `MAIL_FROM` | e.g. `Project Camp <noreply@yourdomain.com>` |
+| `CORS_ORIGIN` | `https://<your-service>.onrender.com` (defensive; same-origin requests don't need CORS) |
 | `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET` | already auto-generated — don't re-paste from `.env` |
+| `ACCESS_TOKEN_EXPIRY`, `REFRESH_TOKEN_EXPIRY` | pinned to `1d` / `7d` in `render.yaml` (the code also falls back to these, so a missing value can never 500 again) |
 
 Notes:
 - Don't set `PORT` — Render assigns it and Express reads `process.env.PORT`.
@@ -86,8 +83,8 @@ Open `https://<service>.onrender.com` and check:
 - `/` renders the React app (not the API JSON banner — the banner only shows
   when `client/dist` is absent)
 - Refresh on `/login` works (SPA fallback, no 404)
-- Register → OTP email arrives; production mode has **no** `devOtp` in the
-  response, so if no email arrives, SMTP vars are wrong
+- Register → lands on `/projects` immediately (201 + cookies). There is no
+  OTP step and no email — if signup works, auth works
 - Login → create project → create task → all same-origin, no CORS errors in
   the browser console
 - `/api-docs` → Swagger UI
@@ -109,8 +106,8 @@ npm run seed
 - **Free plan**: the service sleeps after ~15 min idle (first request takes
   ~30 s — the client's ConnectionBanner will show "can't reach the server"
   briefly). Upgrade to a paid plan to remove this.
-- **Custom domain**: service → Domains → add; then update `FRONTEND_URL` and
-  `CORS_ORIGIN` and redeploy (email links + CORS follow them).
+- **Custom domain**: service → Domains → add; then update `CORS_ORIGIN` and
+  redeploy.
 
 ## 6. Local simulation of production (recommended before deploying)
 
@@ -133,8 +130,8 @@ only `/` behaviour differs while dist exists).
 | App crashes on boot: `MongoServerSelectionError` | `MONGO_URI` unset/wrong, or Atlas Network Access missing `0.0.0.0/0` |
 | `/` shows API JSON, not the UI | `client/dist/index.html` missing → build command didn't run or `rootDir` wrong |
 | Deep link 404s on refresh | stale deploy — clear cache & redeploy so the new `app.js` SPA fallback ships |
+| Login 500s with `"expiresIn" should be a number…` | `ACCESS_TOKEN_EXPIRY` / `REFRESH_TOKEN_EXPIRY` unset — the code now falls back to `1d` / `7d`, so this can only recur if someone removes the fallback |
 | Login works but session lost on refresh | `NODE_ENV` not `production` (cookie `secure` flag) — check dashboard var |
-| OTP email never arrives | SMTP vars; also check provider spam folder; `MAIL_FROM` domain must be authorized by the provider |
 | Rate-limiter blocks everyone behind Render's proxy | `TRUST_PROXY=1` must be set (it is, in `render.yaml`) |
 | Attachments 404 after redeploy | expected — ephemeral disk, see § 5 |
 

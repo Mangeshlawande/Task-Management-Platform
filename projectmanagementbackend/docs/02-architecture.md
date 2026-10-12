@@ -37,7 +37,7 @@ client/
     │   └── App.jsx         # <Outlet/> root, toaster, theme init
     ├── api/
     │   ├── client.js       # fetch wrapper: credentials:'include', envelope unwrap, ApiError
-    │   ├── auth.js         # register/login/logout/me/refresh/forgot/reset/change-password
+    │   ├── auth.js         # register/login/logout/me/refresh/change-password
     │   ├── projects.js     # projects + members + dashboard
     │   ├── tasks.js        # tasks + subtasks + FormData attachments
     │   └── notes.js        # notes
@@ -53,7 +53,7 @@ client/
     │   ├── forms/          # Field, Input, Button (submit state), FormError
     │   └── ui/             # Card, Modal, Badge, Skeleton, EmptyState, Toaster…
     ├── features/
-    │   ├── auth/           # RegisterPage, VerifyEmailPage, LoginPage, ForgotPasswordPage, ResetPasswordPage
+    │   ├── auth/           # RegisterPage, LoginPage (no verify/forgot/reset — no mail)
     │   ├── projects/       # ProjectsPage, CreateProjectModal, ProjectSettings…
     │   ├── board/          # BoardPage (kanban), TaskModal, SubtaskList, Attachments
     │   ├── notes/          # NotesPage
@@ -113,18 +113,16 @@ Cookies are set for `localhost:5173` as a first-party context → `SameSite=stri
 |---|---|
 | `400 { errors: { field: [msgs] } }` | Map to form field errors |
 | `401` invalid/expired access token | Silent refresh + retry once, then redirect |
-| `403` role denied (or login: email not verified) | Hide the action in UI; login → `/verify-email` |
+| `403` role denied | Hide the action in UI |
 | `404` not found / no membership | Empty state or "not found" page |
 | `409` duplicate | Field error (e.g. "email already exists") |
-| `429` rate limited / OTP cooldown | Show `message`; wait and retry — never auto-retry |
+| `429` rate limited | Show `message`; wait and retry — never auto-retry |
 | `500` | Generic toast, log to console |
 
 ## 6. Backend contracts the UI relies on
 
-- `POST /auth/register` → 201 `{ user, devOtp? }` — account is **unverified** until `/auth/verify-otp` (docs/04 § 1)
-- `POST /auth/login` → `403 ['EMAIL_NOT_VERIFIED']` while the email is unverified
+- `POST /auth/register` → 201 `{ user, accessToken, refreshToken }` **and cookies** — account is usable immediately (docs/04 § 1)
 - `GET /auth/me` → hydrates session on app load
-- `POST /auth/login` → sets httpOnly cookies + returns user
+- `POST /auth/login` → sets httpOnly cookies + returns user (never 403)
 - `POST /auth/refresh-token` → cookie-based rotation
-- Reset links point to `{FRONTEND_URL}/reset-password/{token}` → SPA route
 - Envelope always `{ success, message, data }` — client unwraps `data`

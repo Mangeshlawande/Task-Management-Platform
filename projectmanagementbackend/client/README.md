@@ -22,10 +22,8 @@ If your backend runs on another port: `cp .env.example .env` and set
 
 ## What works today
 
-- **Sign up** (`/register`) — full validation, inline field errors from the API
+- **Sign up** (`/register`) — full validation, inline field errors from the API; the account is created **and signed in immediately** (no verification screen)
 - **Log in / out** — httpOnly-cookie session, auto refresh on expiry
-- **Forgot password** (`/forgot-password`) — neutral confirmation + resend cooldown
-- **Reset password** (`/reset-password/:token`) — from the email link, expired-link state
 - **Settings** (`/settings`) — profile + change password (signs you out everywhere, by design)
 - **Protected shell** — guards, theme toggle (dark/light/system), toasts
 

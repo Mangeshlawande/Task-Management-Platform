@@ -12,13 +12,17 @@ export const createAdminIfNotExists = async () => {
       return;
     }
 
+    // Defaults are in code (not only in .ENV.SAMPLE): on Render there is no
+    // .env file, so unset ADMIN_* would make User.create fail validation.
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    const email = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const password = process.env.ADMIN_PASSWORD || 'admin123';
+
     await User.create({
-      username: process.env.ADMIN_USERNAME,
-      email: process.env.ADMIN_EMAIL,
-      password: process.env.ADMIN_PASSWORD,
+      username,
+      email,
+      password,
       role: UserRoleEnum.ADMIN,
-      // Bootstrap account owns the system — never leave it locked behind OTP.
-      isEmailVerified: true,
     });
 
     console.log('✅ Default admin created');

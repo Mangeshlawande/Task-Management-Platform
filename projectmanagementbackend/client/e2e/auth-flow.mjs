@@ -116,70 +116,63 @@ async function main() {
   await shot('01-register-validation');
 
   /* ── 2. Register — success path ───────────────────────────── */
-  step('2) Register — success → redirect to /verify-email');
+  step('2) Register — success → straight to /projects (no verification step)');
   await typeInput('#username', USER);
   await typeInput('#email', EMAIL);
   await typeInput('#password', PASS);
   await shot('02-register-filled');
   await clickButton('Create account');
-  ok('redirected to /verify-email', await expectPath('/verify-email'));
+  ok('redirected to /projects', await expectPath('/projects'));
   await sleep(300);
   ok('success toast shown', (await bodyText()).includes('Account created'));
+  ok('register logged us in (user chip visible)', (await bodyText()).includes(USER));
   ok(
-    'email prefilled on verify page',
-    (await page.$eval('#verify-email', (el) => el.value)) === EMAIL,
+    'projects empty state rendered right after signup',
+    await waitUntil(async () => (await bodyText()).includes('No projects yet')),
   );
-  await shot('03-verify-email');
+  await shot('03-signed-in-after-register');
 
-  /* ── 2b. Email OTP — wrong code, then the real one ────────── */
-  step('2b) Verify email — wrong code rejected, real code signs in');
-  const boxes = await page.$$('input[aria-label^="Digit"]');
-  ok('renders 6 code boxes', boxes.length === 6, `(got ${boxes.length})`);
-
-  // Outside production the API echoes the code and the page shows it, so the
-  // test can read it instead of needing a mailbox (docs/04 § 1).
-  const devCode = await page.evaluate(() => {
-    const el = [...document.querySelectorAll('button')].find((b) =>
-      /^\d{6}$/.test((b.textContent || '').trim()),
-    );
-    return el ? el.textContent.trim() : null;
-  });
+  /* ── 2b. Removed verification endpoints must not exist ────── */
+  step('2b) No OTP / forgot-password surface left on the API or the router');
+  const deadRoutes = await page.evaluate(async (email) => {
+    const probe = async (path, body) => {
+      const res = await fetch(path, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return res.status;
+    };
+    return {
+      verifyOtp: await probe('/api/v1/auth/verify-otp', { email, otp: '123456' }),
+      resendOtp: await probe('/api/v1/auth/resend-otp', { email }),
+      forgot: await probe('/api/v1/auth/forgot-password', { email }),
+      reset: await probe('/api/v1/auth/reset-password/abc', {
+        newPassword: 'Whatever123!',
+      }),
+    };
+  }, EMAIL);
   ok(
-    'dev panel exposes the code',
-    typeof devCode === 'string' && devCode.length === 6,
-    `(got ${devCode})`,
-  );
-
-  const wrongCode = `${devCode.slice(0, 5)}${(Number(devCode[5]) + 1) % 10}`;
-  await page.focus('input[aria-label^="Digit"]');
-  await page.keyboard.type(wrongCode); // focus hops box→box as digits land
-  await sleep(1000);
-  ok(
-    'wrong code shows an error',
-    (await alertTexts()).some((t) => t.includes('Incorrect verification code')),
+    'verify-otp → 404',
+    deadRoutes.verifyOtp === 404,
+    `(got ${deadRoutes.verifyOtp})`,
   );
   ok(
-    'boxes cleared after a bad code',
-    await page.$$eval('input[aria-label^="Digit"]', (els) =>
-      els.every((e) => e.value === ''),
-    ),
+    'resend-otp → 404',
+    deadRoutes.resendOtp === 404,
+    `(got ${deadRoutes.resendOtp})`,
   );
-  await shot('03b-verify-wrong-code');
-
-  // Click the code in the dev panel → click-to-fill → auto-submit.
-  const clicked = await page.evaluate(() => {
-    const el = [...document.querySelectorAll('button')].find((b) =>
-      /^\d{6}$/.test((b.textContent || '').trim()),
-    );
-    if (!el) return false;
-    el.click();
-    return true;
-  });
-  ok('click-to-fill dev code', clicked);
-  ok('verified → landed on /projects', await expectPath('/projects'));
-  await sleep(500);
-  ok('user chip in topbar after verify', (await bodyText()).includes(USER));
-  await shot('03c-verified-projects');
+  ok(
+    'forgot-password → 404',
+    deadRoutes.forgot === 404,
+    `(got ${deadRoutes.forgot})`,
+  );
+  ok(
+    'reset-password → 404',
+    deadRoutes.reset === 404,
+    `(got ${deadRoutes.reset})`,
+  );
 
   /* ── 2c. Log out so /login is reachable again ─────────────── */
   step('2c) Log out (the credential tests need the login page)');
@@ -277,7 +270,10 @@ async function main() {
   await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' });
   await sleep(400);
   ok('settings renders with role badge', (await bodyText()).toLowerCase().includes('member'));
-  ok('email-verified badge shown', (await bodyText()).includes('Email verified'));
+  ok(
+    'no email-verification badge anywhere',
+    !(await bodyText()).includes('Email verified'),
+  );
   await typeInput('#oldPassword', 'WrongPass999!');
   await typeInput('#newPassword', PASS2);
   await typeInput('#confirmPassword', PASS2);
@@ -344,22 +340,11 @@ async function main() {
   await shot('10-guard-bounce');
 
   /* ── 11. Forgot password ──────────────────────────────────── */
-  step('11) Forgot password — neutral confirmation');
+  step('11) Forgot password — route and API removed');
   await page.goto(`${BASE}/forgot-password`, { waitUntil: 'networkidle0' });
-  ok('forgot page renders', (await page.$('#email')) !== null);
-  await typeInput('#email', EMAIL);
-  await shot('11-forgot-filled');
-  await clickButton('Send reset link');
-  // First send on a fresh backend auto-creates an Ethereal account (2–4s) — be patient.
-  const confirmed = await waitUntil(async () => {
-    const t = await bodyText();
-    return t.includes('Check your inbox') || t.includes('Could not send');
-  }, 20000);
-  const fp = await bodyText();
-  ok('neutral confirmation shown', fp.includes('Check your inbox'), fp.includes('Could not send') ? '(send failed)' : '');
-  ok('mentions the email', fp.includes(EMAIL));
-  ok('resend button present', fp.includes('Resend'));
-  await shot('12-forgot-confirmation');
+  await sleep(400);
+  ok('old route falls through to the 404 page', (await bodyText()).includes('Page not found'));
+  await shot('11-forgot-route-removed');
 
   /* ── 12. Cleanup ──────────────────────────────────────────── */
   step('12) Cleanup — delete the ephemeral account');
