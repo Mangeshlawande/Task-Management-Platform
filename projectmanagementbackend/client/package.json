@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src",
+    "test": "node src/lib/mock/mock-smoke.mjs",
     "test:e2e": "node e2e/auth-flow.mjs"
   },
   "dependencies": {

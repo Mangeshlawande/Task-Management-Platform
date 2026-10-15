@@ -18,4 +18,18 @@ export default defineConfig({
       '/images': { target: backend, changeOrigin: true }, // task attachment files
     },
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-dnd': ['@dnd-kit/core'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+  },
 });
