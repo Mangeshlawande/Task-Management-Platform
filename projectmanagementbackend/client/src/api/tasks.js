@@ -43,4 +43,16 @@ export const tasksApi = {
   /** DELETE …/:taskId/subtasks/:subTaskId → {} — creator, task owner or admin. */
   removeSubtask: (projectId, taskId, subTaskId) =>
     api.delete(`${base(projectId)}/${taskId}/subtasks/${subTaskId}`),
+
+  /** GET …/:taskId/comments → Comment[] (populated author, chronological) */
+  listComments: (projectId, taskId) =>
+    api.get(`${base(projectId)}/${taskId}/comments`),
+
+  /** POST …/:taskId/comments { content } → Comment (201) */
+  addComment: (projectId, taskId, content) =>
+    api.post(`${base(projectId)}/${taskId}/comments`, { content }),
+
+  /** DELETE …/:taskId/comments/:commentId → {} */
+  deleteComment: (projectId, taskId, commentId) =>
+    api.delete(`${base(projectId)}/${taskId}/comments/${commentId}`),
 };

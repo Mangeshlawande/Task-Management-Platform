@@ -1,69 +1,200 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:is(.dark, .dark *));
 
-/*
-  Theme tokens — single source of truth for both themes.
-  Semantic colors keep components theme-agnostic.
-*/
-@theme {
-  --color-surface: #ffffff;
-  --color-surface-alt: #f8fafc;
-  --color-card: #ffffff;
-  --color-border: #e2e8f0;
-  --color-foreground: #0f172a;
-  --color-muted: #64748b;
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-foreground: #ffffff;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-ring: #818cf8;
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
-  --color-dark-surface: #0b1120;
-  --color-dark-surface-alt: #111a2e;
-  --color-dark-card: #16213a;
-  --color-dark-border: #27334d;
-  --color-dark-foreground: #e2e8f0;
-  --color-dark-muted: #8fa3c0;
-  --color-dark-primary: #6366f1;
-  --color-dark-primary-hover: #818cf8;
-  --color-dark-ring: #6366f1;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Backward compatibility tokens for existing dark-* utility classes */
+  --color-surface: var(--background);
+  --color-surface-alt: var(--secondary);
+  --color-danger: var(--destructive);
+  --color-dark-surface: oklch(0.16 0.012 264);
+  --color-dark-surface-alt: oklch(0.245 0.016 264);
+  --color-dark-card: oklch(0.205 0.014 264);
+  --color-dark-border: oklch(1 0 0 / 14%);
+  --color-dark-foreground: oklch(0.97 0.004 264);
+  --color-dark-muted: oklch(0.68 0.018 264);
+  --color-dark-primary: oklch(0.72 0.18 277);
+  --color-dark-ring: oklch(0.72 0.18 277);
+}
+
+:root {
+  --radius: 0.65rem;
+  --background: oklch(0.965 0.006 264);
+  --foreground: oklch(0.18 0.02 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 264);
+  --primary: oklch(0.55 0.22 277);
+  --primary-foreground: oklch(0.99 0.003 264);
+  --secondary: oklch(0.935 0.008 264);
+  --secondary-foreground: oklch(0.22 0.02 264);
+  --muted: oklch(0.935 0.008 264);
+  --muted-foreground: oklch(0.44 0.02 264);
+  --accent: oklch(0.94 0.02 277);
+  --accent-foreground: oklch(0.3 0.15 277);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0.003 264);
+  --success: oklch(0.62 0.16 155);
+  --warning: oklch(0.74 0.16 75);
+  --border: oklch(0.86 0.01 264);
+  --input: oklch(0.86 0.01 264);
+  --ring: oklch(0.55 0.22 277);
+  --sidebar: oklch(0.985 0.004 264);
+  --sidebar-foreground: oklch(0.22 0.02 264);
+  --sidebar-primary: oklch(0.55 0.22 277);
+  --sidebar-primary-foreground: oklch(0.99 0.003 264);
+  --sidebar-accent: oklch(0.93 0.015 277);
+  --sidebar-accent-foreground: oklch(0.3 0.15 277);
+  --sidebar-border: oklch(0.86 0.01 264);
+  --sidebar-ring: oklch(0.55 0.22 277);
+}
+
+.dark {
+  --background: oklch(0.22 0.014 264);
+  --foreground: oklch(0.97 0.004 264);
+  --card: oklch(0.27 0.016 264);
+  --card-foreground: oklch(0.97 0.004 264);
+  --popover: oklch(0.27 0.016 264);
+  --popover-foreground: oklch(0.97 0.004 264);
+  --primary: oklch(0.72 0.18 277);
+  --primary-foreground: oklch(0.16 0.012 264);
+  --secondary: oklch(0.32 0.018 264);
+  --secondary-foreground: oklch(0.97 0.004 264);
+  --muted: oklch(0.31 0.016 264);
+  --muted-foreground: oklch(0.72 0.018 264);
+  --accent: oklch(0.35 0.06 277);
+  --accent-foreground: oklch(0.94 0.05 277);
+  --destructive: oklch(0.66 0.22 25);
+  --destructive-foreground: oklch(0.97 0.004 264);
+  --success: oklch(0.7 0.16 155);
+  --warning: oklch(0.78 0.16 75);
+  --border: oklch(0.37 0.018 264);
+  --input: oklch(0.34 0.016 264);
+  --ring: oklch(0.72 0.18 277);
+  --sidebar: oklch(0.24 0.015 264);
+  --sidebar-foreground: oklch(0.94 0.004 264);
+  --sidebar-primary: oklch(0.72 0.18 277);
+  --sidebar-primary-foreground: oklch(0.16 0.012 264);
+  --sidebar-accent: oklch(0.31 0.03 277);
+  --sidebar-accent-foreground: oklch(0.94 0.05 277);
+  --sidebar-border: oklch(0.35 0.016 264);
+  --sidebar-ring: oklch(0.72 0.18 277);
 }
 
 @layer base {
-  html {
-    @apply antialiased;
+  @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 300 800;
+    font-display: swap;
+    src: local("Inter"), local("Inter-Regular"),
+         url("https://fonts.gstatic.com/s/inter/v18/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2") format("woff2");
   }
-  body {
-    @apply bg-surface text-foreground;
+  * {
+    border-color: var(--color-border);
   }
-  .dark body {
-    @apply bg-dark-surface text-dark-foreground;
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
   ::selection {
-    @apply bg-primary/20;
+    background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
   }
+}
+
+.font-display {
+  font-family: var(--font-display, var(--font-sans));
+}
+.font-sans {
+  font-family: var(--font-sans);
 }
 
 @layer components {
   .app-input {
     @apply w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground
-      placeholder:text-muted/70 outline-none transition
-      focus:border-ring focus:ring-2 focus:ring-ring/30
-      disabled:cursor-not-allowed disabled:opacity-60
-      dark:border-dark-border dark:bg-dark-card dark:text-dark-foreground
-      dark:placeholder:text-dark-muted/70 dark:focus:border-dark-ring;
+      placeholder:text-muted-foreground outline-none transition
+      focus:border-primary focus:ring-2 focus:ring-ring/25
+      disabled:cursor-not-allowed disabled:opacity-60;
   }
   .app-input-error {
-    @apply border-danger focus:border-danger focus:ring-danger/25 dark:border-danger;
+    @apply border-destructive focus:border-destructive focus:ring-destructive/25;
   }
   .app-label {
-    @apply mb-1.5 block text-sm font-medium text-foreground dark:text-dark-foreground;
+    @apply mb-1.5 block text-sm font-medium text-foreground;
   }
   .app-card {
-    @apply rounded-xl border border-border bg-card shadow-sm
-      dark:border-dark-border dark:bg-dark-card;
+    @apply rounded-xl border border-border bg-card shadow-sm;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-muted-foreground) 25%, transparent);
+    border-radius: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--color-card) 70%, transparent);
+    backdrop-filter: blur(12px);
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .text-muted {
+    color: var(--muted-foreground);
+  }
+  .placeholder-muted::placeholder {
+    color: var(--muted-foreground);
   }
 }

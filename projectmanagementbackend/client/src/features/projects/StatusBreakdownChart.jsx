@@ -1,119 +1,98 @@
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+
 /**
- * Status breakdown donut — docs/07 § 2.4 / TESTCASES DASH-01 + DASH-03.
- *
- * Hand-rolled SVG (stroke-dasharray), no chart library: docs/02's stack table
- * has no charting dep and adding one needs approval. Numbers come from the
- * dashboard endpoint (`stats`), so segments always match the kanban columns.
- *
- * Empty project (total === 0): renders a zeroed ring + "No tasks yet" —
- * no NaN, no blank (DASH-03).
+ * Status breakdown chart for project dashboard.
+ * Uses the same Recharts donut/pie chart as TaskDistributionChart in DashboardPage.
  */
-const SEGMENTS = [
-  { key: 'todo', label: 'To do', className: 'stroke-slate-400 dark:stroke-slate-500' },
-  { key: 'in_progress', label: 'In progress', className: 'stroke-primary' },
-  { key: 'done', label: 'Done', className: 'stroke-success' },
-];
-
-const RADIUS = 42;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS; // ≈ 263.9
-
 export function StatusBreakdownChart({ stats }) {
-  const total = stats.total ?? 0;
-  const safeTotal = total > 0 ? total : 1; // avoid /0 — only used for widths
+  const total = stats?.total ?? 0;
 
-  let offset = 0;
-  const segments = SEGMENTS.map((segment) => {
-    const count = stats[segment.key] ?? 0;
-    const fraction = count / safeTotal;
-    const dash = fraction * CIRCUMFERENCE;
-    const segmentData = {
-      ...segment,
-      count,
-      percent: total > 0 ? Math.round(fraction * 100) : 0,
-      dashOffset: -offset,
-    };
-    offset += dash;
-    return segmentData;
-  });
+  const statusData = [
+    {
+      name: 'To Do',
+      value: stats?.todo ?? 0,
+      fill: 'oklch(0.6 0.02 264)',
+    },
+    {
+      name: 'In Progress',
+      value: stats?.in_progress ?? 0,
+      fill: 'oklch(0.72 0.18 277)',
+    },
+    {
+      name: 'Done',
+      value: stats?.done ?? 0,
+      fill: 'oklch(0.62 0.16 155)',
+    },
+  ];
+
+  const hasData = total > 0;
+  const chartData = hasData
+    ? statusData.filter((d) => d.value > 0)
+    : [{ name: 'No tasks', value: 1, fill: 'oklch(0.6 0.02 264 / 0.15)' }];
 
   return (
     <div className="app-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-foreground dark:text-dark-foreground">
-            Status breakdown
-          </h2>
-          <p className="mt-0.5 text-xs text-muted dark:text-dark-muted">
+          <h2 className="text-sm font-semibold text-foreground">Status breakdown</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {total > 0
               ? `${total} task${total === 1 ? '' : 's'} across the board`
               : 'No tasks yet'}
           </p>
         </div>
+      </div>
 
-        <div className="flex items-center gap-5">
-          {/* Legend */}
-          <ul className="space-y-1.5">
-            {segments.map((segment) => (
-              <li
-                key={segment.key}
-                className="flex items-center gap-2 text-xs text-muted dark:text-dark-muted"
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={40}
+                outerRadius={70}
+                strokeWidth={2}
+                stroke="var(--color-card)"
               >
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    {
-                      todo: 'bg-slate-400 dark:bg-slate-500',
-                      in_progress: 'bg-primary',
-                      done: 'bg-success',
-                    }[segment.key]
-                  }`}
-                  aria-hidden
-                />
-                <span className="w-20">{segment.label}</span>
-                <span className="font-medium text-foreground dark:text-dark-foreground">
-                  {segment.count}
-                </span>
-                <span className="w-9 text-right">{segment.percent}%</span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Donut */}
-          <svg
-            viewBox="0 0 100 100"
-            className="h-28 w-28 shrink-0 -rotate-90"
-            role="img"
-            aria-label={
-              total > 0
-                ? `Task status: ${segments
-                    .map((s) => `${s.count} ${s.label}`)
-                    .join(', ')}`
-                : 'No tasks yet'
-            }
-          >
-            <circle
-              cx="50"
-              cy="50"
-              r={RADIUS}
-              className="fill-none stroke-border/60 dark:stroke-dark-border/60"
-              strokeWidth="10"
-            />
-            {total > 0 &&
-              segments
-                .filter((segment) => segment.count > 0)
-                .map((segment) => (
-                  <circle
-                    key={segment.key}
-                    cx="50"
-                    cy="50"
-                    r={RADIUS}
-                    className={`fill-none ${segment.className}`}
-                    strokeWidth="10"
-                    strokeLinecap="butt"
-                    strokeDasharray={`${segment.dash} ${CIRCUMFERENCE - segment.dash}`}
-                    strokeDashoffset={segment.dashOffset}
-                  />
+                {chartData.map((d, i) => (
+                  <Cell key={i} fill={d.fill} />
                 ))}
-          </svg>
+              </Pie>
+              {hasData && (
+                <Tooltip
+                  contentStyle={{
+                    background: 'var(--color-popover)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: 'var(--color-popover-foreground)',
+                  }}
+                />
+              )}
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="space-y-2.5">
+          {statusData.map((s) => {
+            const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+            return (
+              <div key={s.name} className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 text-foreground font-medium">
+                  <span className="h-2 w-2 rounded-full" style={{ background: s.fill }} />
+                  {s.name}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">{s.value}</span>
+                  <span className="w-10 text-right text-muted-foreground text-[11px]">
+                    ({pct}%)
+                  </span>
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import {
   KanbanSquare,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   Moon,
   Plus,
   Search,
@@ -60,6 +61,14 @@ export function CommandPalette({ onLogout }) {
   const commands = useMemo(() => {
     const list = [
       {
+        id: 'workspace-dashboard',
+        label: 'Go to Workspace Dashboard',
+        hint: 'Navigate',
+        icon: LayoutDashboard,
+        keywords: 'overview stats metrics home',
+        run: () => navigate('/dashboard'),
+      },
+      {
         id: 'projects',
         label: 'Go to Projects',
         hint: 'Navigate',
@@ -68,11 +77,35 @@ export function CommandPalette({ onLogout }) {
         run: () => navigate('/projects'),
       },
       {
+        id: 'workspace-notes',
+        label: 'Go to Workspace Notes',
+        hint: 'Navigate',
+        icon: StickyNote,
+        keywords: 'docs memos documentation write',
+        run: () => navigate('/notes'),
+      },
+      {
+        id: 'workspace-members',
+        label: 'Go to Team Members',
+        hint: 'Navigate',
+        icon: Users,
+        keywords: 'people directory colleagues team',
+        run: () => navigate('/members'),
+      },
+      {
+        id: 'profile',
+        label: 'Go to Profile',
+        hint: 'Navigate',
+        icon: Settings,
+        keywords: 'profile account me avatar bio',
+        run: () => navigate('/profile'),
+      },
+      {
         id: 'settings',
         label: 'Go to Settings',
         hint: 'Navigate',
         icon: Settings,
-        keywords: 'profile password account',
+        keywords: 'password credentials security',
         run: () => navigate('/settings'),
       },
       {
@@ -121,8 +154,16 @@ export function CommandPalette({ onLogout }) {
           label: 'Go to Board',
           hint: 'Project',
           icon: KanbanSquare,
-          keywords: 'kanban tasks columns',
+          keywords: 'kanban board tasks pipeline columns workflow',
           run: () => navigate(`/projects/${projectId}/board`),
+        },
+        {
+          id: 'discussions',
+          label: 'Go to Comments & Views',
+          hint: 'Project',
+          icon: MessageSquare,
+          keywords: 'discussions viewpoints opinions comments ideas blockers views feedback',
+          run: () => navigate(`/projects/${projectId}/discussions`),
         },
         {
           id: 'notes',
@@ -153,9 +194,9 @@ export function CommandPalette({ onLogout }) {
           label: 'Create task',
           hint: 'Create',
           icon: Plus,
-          keywords: 'add board card',
+          keywords: 'add task board pipeline card',
           run: () => {
-            navigate(`/projects/${projectId}/board`);
+            navigate(`/projects/${projectId}/tasks`);
             setPendingCreate({ kind: 'task', projectId, ts: Date.now() });
           },
         },

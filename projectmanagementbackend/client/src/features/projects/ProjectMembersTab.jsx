@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, ShieldCheck, UserMinus, UserPlus } from 'lucide-react';
+import { Mail, ShieldCheck, UserMinus, UserPlus, GitBranch } from 'lucide-react';
 import { ApiError } from '../../api/client.js';
 import {
   canManageContent,
@@ -18,6 +18,7 @@ import {
 } from '../../components/ui/index.js';
 import { toast } from '../../stores/uiStore.js';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
+import { MemberPipelineModal } from '../members/MemberPipelineModal.jsx';
 
 const ROLE_OPTIONS = [
   { value: 'project_admin', label: 'Project admin' },
@@ -34,7 +35,7 @@ const ROLE_OPTIONS = [
  *   for unauthorized roles (docs/05 "role-gated controls hidden").
  */
 export function ProjectMembersTab() {
-  const { project, members, myRole, addMember, updateMemberRole, removeMember } =
+  const { project, members, tasks, myRole, addMember, updateMemberRole, removeMember } =
     useProject();
   const currentUserId = useAuthStore((s) => s.user?._id);
 
@@ -42,6 +43,8 @@ export function ProjectMembersTab() {
   const isOwner = myRole === 'admin';
   const [inviting, setInviting] = useState(false);
   const [busyUserId, setBusyUserId] = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [pipelineOpen, setPipelineOpen] = useState(false);
 
   const handleChangeRole = async (member, role) => {
     if (role === member.role) return;
@@ -71,7 +74,7 @@ export function ProjectMembersTab() {
   return (
     <div className="max-w-3xl space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted dark:text-dark-muted">
+        <p className="text-sm text-muted-foreground">
           People with access to <strong>{project.name}</strong>.
         </p>
         {canInvite && (
@@ -97,45 +100,76 @@ export function ProjectMembersTab() {
           }
         />
       ) : (
-        <ul className="app-card divide-y divide-border dark:divide-dark-border">
+        <ul className="app-card divide-y divide-border">
           {members.map((member) => {
             const user = member.user ?? {};
             const isSelf = user._id === currentUserId;
             const canTouch = isOwner && !isSelf;
             const busy = busyUserId === user._id;
 
+            const memberTaskCount = (tasks || []).filter((t) => {
+              const aid = String(t.assignedTo?._id || t.assignedTo || '');
+              return aid === String(user._id);
+            }).length;
+
             return (
               <li
                 key={member._id ?? user._id}
                 className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5"
               >
-                <Avatar user={user} />
+                <div
+                  onClick={() => {
+                    setSelectedMember(member);
+                    setPipelineOpen(true);
+                  }}
+                  className="flex cursor-pointer items-center gap-3 min-w-0 flex-1 group"
+                >
+                  <Avatar user={user} />
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground dark:text-dark-foreground">
-                    {user.fullName || user.username || 'Unknown user'}
-                    {isSelf && (
-                      <span className="ml-1.5 text-xs text-muted dark:text-dark-muted">
-                        (you)
-                      </span>
-                    )}
-                  </p>
-                  <p className="truncate text-xs text-muted dark:text-dark-muted">
-                    {user.email || '—'}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                      {user.fullName || user.username || 'Unknown user'}
+                      {isSelf && (
+                        <span className="ml-1.5 text-xs text-muted-foreground">
+                          (you)
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {user.email || '—'}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Pipeline button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedMember(member);
+                    setPipelineOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 text-xs h-7.5 px-2.5 transition hover:border-primary hover:text-primary shadow-2xs"
+                  title={`View ${user.fullName || user.username}'s tasks and pipeline dependencies`}
+                >
+                  <GitBranch className="h-3.5 w-3.5 text-primary" />
+                  <span className="hidden sm:inline">Pipeline</span>
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-bold text-primary">
+                    {memberTaskCount}
+                  </span>
+                </Button>
 
                 {canTouch ? (
                   <select
                     aria-label={`Role for ${user.username || 'member'}`}
-                    className="app-input h-8 w-40 py-0 text-xs"
+                    className="h-8 w-36 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground shadow-sm transition hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
                     value={member.role}
                     disabled={busy}
                     onChange={(e) => handleChangeRole(member, e.target.value)}
                   >
-                    <option value="admin">Admin</option>
+                    <option value="admin" className="bg-card text-foreground">Admin</option>
                     {ROLE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
+                      <option key={option.value} value={option.value} className="bg-card text-foreground">
                         {option.label}
                       </option>
                     ))}
@@ -160,7 +194,7 @@ export function ProjectMembersTab() {
                   </Button>
                 )}
 
-                <span className="hidden w-24 text-right text-xs text-muted dark:text-dark-muted lg:block">
+                <span className="hidden w-24 text-right text-xs text-muted-foreground lg:block">
                   {formatDate(member.createdAt)}
                 </span>
               </li>
@@ -173,6 +207,26 @@ export function ProjectMembersTab() {
         <InviteMemberModal
           onClose={() => setInviting(false)}
           onInvite={addMember}
+        />
+      )}
+
+      {/* Member Pipeline Modal */}
+      {selectedMember && (
+        <MemberPipelineModal
+          open={pipelineOpen}
+          onClose={() => {
+            setPipelineOpen(false);
+            setSelectedMember(null);
+          }}
+          memberEntry={{
+            user: selectedMember.user,
+            projects: [{ id: project._id, name: project.name, role: selectedMember.role }],
+            roles: { [project._id]: selectedMember.role },
+            createdAt: selectedMember.createdAt,
+          }}
+          allTasks={tasks || []}
+          projects={[project]}
+          currentProjectId={project._id}
         />
       )}
     </div>
@@ -233,7 +287,7 @@ function InviteMemberModal({ onClose, onInvite }) {
     <Modal
       onClose={onClose}
       title="Add member"
-      description="They must already have a Project Camp account."
+      description="They must already have a WorkPulse account."
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={submitting}>

@@ -1,44 +1,58 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client.js';
 import { projectsApi } from '../../api/projects.js';
+import { tasksApi } from '../../api/tasks.js';
 import { useAuthStore } from '../../stores/authStore.js';
+import { useCacheStore } from '../../stores/cacheStore.js';
 
 /**
- * Owns one project + its members for the shell (docs/02: features keep their
+ * Owns one project + its members and tasks for the shell (docs/02: features keep their
  * own hooks; `api/` stays React-free). status: loading | ready | error.
  *
  * `myRole` is derived from the members list — the authoritative project-scoped
  * role — falling back to the role embedded in GET /projects list items.
+ *
+ * Pre-populates from Zustand cache to eliminate skeleton flashes during tab/route transitions.
  */
 export function useProjectDetail(projectId, fallbackRole = null) {
-  const [project, setProject] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [status, setStatus] = useState('loading');
+  const cachedProject = useCacheStore.getState().get(`/api/v1/projects/${projectId}`);
+  const cachedMembers = useCacheStore.getState().get(`/api/v1/projects/${projectId}/members`);
+  const cachedTasks = useCacheStore.getState().get(`/api/v1/projects/${projectId}/tasks`);
+  const hasCache = Boolean(cachedProject);
+
+  const [project, setProject] = useState(cachedProject || null);
+  const [members, setMembers] = useState(cachedMembers || []);
+  const [tasks, setTasks] = useState(cachedTasks || []);
+  const [status, setStatus] = useState(hasCache ? 'ready' : 'loading');
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setStatus('loading');
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setStatus('loading');
     setError(null);
 
     try {
-      const [projectData, membersData] = await Promise.all([
+      const [projectData, membersData, tasksData] = await Promise.all([
         projectsApi.get(projectId),
         projectsApi.listMembers(projectId),
+        tasksApi.list(projectId).catch(() => []),
       ]);
       setProject(projectData);
-      setMembers(membersData);
+      setMembers(membersData || []);
+      setTasks(tasksData || []);
       setStatus('ready');
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Could not load this project.',
-      );
-      setStatus('error');
+      if (!silent) {
+        setError(
+          err instanceof ApiError ? err.message : 'Could not load this project.',
+        );
+        setStatus('error');
+      }
     }
   }, [projectId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(hasCache);
+  }, [load, hasCache]);
 
   const currentUserId = useAuthStore((s) => s.user?._id);
 
@@ -96,6 +110,7 @@ export function useProjectDetail(projectId, fallbackRole = null) {
   return {
     project,
     members,
+    tasks,
     myRole,
     status,
     error,

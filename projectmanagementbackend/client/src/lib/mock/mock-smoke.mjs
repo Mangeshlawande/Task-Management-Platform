@@ -48,19 +48,19 @@ ok('me returns session user');
 
 /* projects */
 const projects = await call('GET', '/api/v1/projects');
-assert.equal(projects.data.length, 2);
-ok('maya sees 2 projects');
+assert.equal(projects.data.length, 4);
+ok('maya sees 4 projects');
 
-const website = projects.data.find((p) => p.project.name === 'Website Revamp').project;
-const mobile = projects.data.find((p) => p.project.name === 'Mobile App MVP').project;
-assert.equal(website.members, 4);
+const website = projects.data.find((p) => p.project.name === 'Atlas Web Relaunch').project;
+const mobile = projects.data.find((p) => p.project.name === 'Mobile Application v2').project;
+assert.equal(website.members, 11);
 ok('member counts present');
 
 /* tasks */
 const tasks = await call('GET', `/api/v1/projects/${website._id}/tasks`);
-assert.equal(tasks.data.length, 9);
+assert.equal(tasks.data.length, 14);
 const populated = tasks.data.filter((t) => t.assignedTo && t.assignedTo.username);
-assert.ok(populated.length >= 8, `expected populated assignees, got ${populated.length}`);
+assert.ok(populated.length >= 10, `expected populated assignees, got ${populated.length}`);
 assert.ok(tasks.data.some((t) => t.assignedTo === null), 'unassigned task present');
 assert.ok(populated.some((t) => t.assignedTo.username === 'maya'), 'maya assigned to at least one task');
 ok('tasks listed with populated assignee snapshots');
@@ -116,8 +116,8 @@ ok('note create + pin');
 
 /* dashboard */
 const dash = await call('GET', `/api/v1/projects/${website._id}/dashboard`);
-assert.deepEqual(dash.data.stats, { todo: 5, in_progress: 3, done: 2, total: 10 });
-assert.equal(dash.data.memberCount, 4);
+assert.deepEqual(dash.data.stats, { todo: 6, in_progress: 5, done: 4, total: 15 });
+assert.equal(dash.data.memberCount, 11);
 ok('dashboard stats + memberCount');
 
 /* role gating: maya is a plain member on Mobile App MVP */

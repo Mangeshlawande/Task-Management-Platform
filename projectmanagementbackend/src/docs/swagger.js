@@ -4,10 +4,10 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Project Camp API',
+      title: 'WorkPulse API',
       version: '1.0.0',
       description:
-        'REST API for Project Camp — a collaborative project management backend. ' +
+        'REST API for WorkPulse — a collaborative project management backend. ' +
         'Authentication uses JWT access/refresh tokens delivered as httpOnly cookies ' +
         '(and accepted as Bearer headers). All responses use a uniform envelope: ' +
         '`{ success, message, data, meta }` and errors `{ success, message, errors }`.',

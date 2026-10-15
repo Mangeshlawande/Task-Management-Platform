@@ -26,6 +26,12 @@ import {
 
 import { Router } from 'express';
 
+import {
+  getProjectComments,
+  createProjectComment,
+  deleteProjectComment,
+} from '#controllers/comment.controllers.js';
+
 // Sub-routers
 import taskRouter from '#routes/task.routes.js';
 import noteRouter from '#routes/note.routes.js';
@@ -358,6 +364,34 @@ router
     validate,
     validateProjectPermission([UserRoleEnum.ADMIN]),
     deleteMember,
+  );
+
+//
+// PROJECT-LEVEL COMMENTS & DISCUSSIONS
+//
+
+router
+  .route('/:projectId/comments')
+  .get(
+    projectIdValidator(),
+    validate,
+    validateProjectPermission(AvailableUserRole),
+    getProjectComments,
+  )
+  .post(
+    projectIdValidator(),
+    validate,
+    validateProjectPermission(AvailableUserRole),
+    createProjectComment,
+  );
+
+router
+  .route('/:projectId/comments/:commentId')
+  .delete(
+    projectIdValidator(),
+    validate,
+    validateProjectPermission(AvailableUserRole),
+    deleteProjectComment,
   );
 
 //

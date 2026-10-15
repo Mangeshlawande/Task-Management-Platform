@@ -54,6 +54,13 @@ const taskSchema = new Schema(
       type: Date,
     },
 
+    dependsOn: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Task',
+      },
+    ],
+
     attachments: {
       type: [
         {

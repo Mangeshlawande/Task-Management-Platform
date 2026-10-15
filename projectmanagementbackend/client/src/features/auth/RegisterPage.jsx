@@ -1,6 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { UserRound, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { authApi } from '../../api/auth.js';
 import { ApiError } from '../../api/client.js';
 import { useAuthStore } from '../../stores/authStore.js';
@@ -10,13 +10,13 @@ import {
   validateUsername,
   validatePassword,
 } from '../../lib/validators.js';
-import { Button, Field } from '../../components/ui/index.js';
+import { Button } from '../../components/ui/index.js';
+import { AuthLayout } from '../../components/auth/AuthLayout.jsx';
 import { toast } from '../../stores/uiStore.js';
 
 const initial = { fullName: '', username: '', email: '', password: '' };
 
 const validate = (v) => {
-  // run all validators so every field shows its error at once
   const results = {
     email: validateEmail(v.email),
     username: validateUsername(v.username),
@@ -25,13 +25,6 @@ const validate = (v) => {
   return Object.fromEntries(Object.entries(results).filter(([, m]) => m));
 };
 
-/**
- * P1.1 + P1.2 — Sign Up.
- * Contract: POST /auth/register → 201 { user, accessToken, refreshToken }.
- * No verification step: the account is live immediately and the API sets the
- * auth cookies, so we seed the store and land on /projects.
- * 400 → field errors; 409 → inline field error under the offending identifier.
- */
 export function RegisterPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -41,16 +34,13 @@ export function RegisterPage() {
     setFormError(null);
     try {
       const data = await authApi.register(values);
-      // Cookies are already set by the API — hydrate the session so the
-      // protected router doesn't bounce us back through a /me round-trip.
       if (data?.user) useAuthStore.getState().setUser(data.user);
       toast.success('Account created — welcome aboard!');
-      navigate('/projects', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       if (!(err instanceof ApiError)) {
         setFormError('Something went wrong. Please try again.');
       } else if (err.status === 409) {
-        // duplicate email/username → inline under the right field when possible
         const msg = err.message || 'Account already exists';
         if (/email/i.test(msg) && !/username/i.test(msg)) {
           form.setErrors((e) => ({ ...e, email: msg }));
@@ -62,121 +52,130 @@ export function RegisterPage() {
       } else if (!Object.keys(err.fieldErrors || {}).length) {
         setFormError(err.message);
       }
-      // validation (400) field errors are handled inside useForm
     }
   });
 
   return (
-    <div className="w-full max-w-md">
-      <div className="app-card p-6 sm:p-8">
-        <h1 className="text-xl font-semibold text-foreground dark:text-dark-foreground">
-          Create your account
-        </h1>
-        <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-          Start managing projects with your team in minutes.
-        </p>
-
-        {formError && (
-          <div
-            className="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
-            role="alert"
-          >
-            {formError}
-          </div>
-        )}
-
-        <form className="mt-6 space-y-4" onSubmit={form.handleSubmit} noValidate>
-          <Field label="Full name" htmlFor="fullName" hint="Optional — shown to your teammates">
-            <div className="relative">
-              <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                autoComplete="name"
-                maxLength={100}
-                className="app-input pl-9"
-                placeholder="Jane Doe"
-                value={form.values.fullName}
-                onChange={form.handleChange}
-              />
-            </div>
-          </Field>
-
-          <Field label="Username" htmlFor="username" error={form.errors.username} hint="3–30 characters — letters, numbers, underscores">
-            <div className="relative">
-              <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                autoComplete="username"
-                className={`app-input pl-9 ${form.errors.username ? 'app-input-error' : ''}`}
-                placeholder="jane_doe"
-                value={form.values.username}
-                onChange={form.handleChange}
-                aria-invalid={!!form.errors.username}
-              />
-            </div>
-          </Field>
-
-          <Field label="Email" htmlFor="email" error={form.errors.email}>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                className={`app-input pl-9 ${form.errors.email ? 'app-input-error' : ''}`}
-                placeholder="jane@example.com"
-                value={form.values.email}
-                onChange={form.handleChange}
-                aria-invalid={!!form.errors.email}
-              />
-            </div>
-          </Field>
-
-          <Field label="Password" htmlFor="password" error={form.errors.password} hint="At least 8 characters">
-            <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                autoComplete="new-password"
-                className={`app-input pl-9 pr-10 ${form.errors.password ? 'app-input-error' : ''}`}
-                placeholder="••••••••"
-                value={form.values.password}
-                onChange={form.handleChange}
-                aria-invalid={!!form.errors.password}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-foreground dark:text-dark-muted dark:hover:text-dark-foreground"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
-              </button>
-            </div>
-          </Field>
-
-          <Button type="submit" size="lg" className="w-full" loading={form.submitting}>
-            {form.submitting ? 'Creating account…' : 'Create account'}
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-muted dark:text-dark-muted">
+    <AuthLayout
+      title="Create your workspace"
+      subtitle="Free for teams under 10."
+      footer={
+        <>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Log in
+          <Link to="/login" className="font-medium text-foreground hover:underline">
+            Sign in
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {formError && (
+        <div
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          role="alert"
+        >
+          {formError}
+        </div>
+      )}
+
+      <form onSubmit={form.handleSubmit} className="space-y-4" noValidate>
+        <div className="space-y-1.5">
+          <label htmlFor="fullName" className="block text-sm font-medium text-foreground">
+            Full name
+          </label>
+          <input
+            id="fullName"
+            name="fullName"
+            type="text"
+            autoComplete="name"
+            placeholder="Jane Doe"
+            className="app-input"
+            value={form.values.fullName}
+            onChange={form.handleChange}
+            onBlur={form.handleBlur}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="username" className="block text-sm font-medium text-foreground">
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            required
+            autoComplete="username"
+            placeholder="janedoe"
+            className={`app-input ${form.errors.username ? 'app-input-error' : ''}`}
+            value={form.values.username}
+            onChange={form.handleChange}
+            onBlur={form.handleBlur}
+          />
+          {form.errors.username && (
+            <p className="text-xs text-destructive">{form.errors.username}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="name@example.com"
+            className={`app-input ${form.errors.email ? 'app-input-error' : ''}`}
+            value={form.values.email}
+            onChange={form.handleChange}
+            onBlur={form.handleBlur}
+          />
+          {form.errors.email && (
+            <p className="text-xs text-destructive">{form.errors.email}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
+            Password
+          </label>
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              autoComplete="new-password"
+              placeholder="••••••••"
+              className={`app-input pr-10 ${form.errors.password ? 'app-input-error' : ''}`}
+              value={form.values.password}
+              onChange={form.handleChange}
+              onBlur={form.handleBlur}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {form.errors.password && (
+            <p className="text-xs text-destructive">{form.errors.password}</p>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full justify-center shadow-sm"
+          loading={form.submitting}
+        >
+          Create account
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

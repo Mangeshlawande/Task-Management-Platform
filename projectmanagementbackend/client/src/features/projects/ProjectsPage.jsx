@@ -1,25 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, FolderOpen, Plus, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  AlertCircle,
+  FolderOpen,
+  LayoutGrid,
+  List as ListIcon,
+  Plus,
+  Search,
+} from 'lucide-react';
 import { Badge, Button, EmptyState, Skeleton } from '../../components/ui/index.js';
+import { PageHeader } from '../../components/common/PageHeader.jsx';
 import { consumePendingCreate, useUiStore } from '../../stores/uiStore.js';
 import {
-  formatDate,
-  memberCountLabel,
+  fromNow,
   roleBadgeVariant,
   roleLabel,
 } from '../../lib/format.js';
 import { CreateProjectModal } from './CreateProjectModal.jsx';
 import { useProjects } from './useProjects.js';
 
-/**
- * P2.1 — Projects list.
- * GET /projects returns [{ role, project }] including a member count, so the
- * grid needs no follow-up requests. Loading / empty / error states all render
- * (docs/05 § P5.3). Cards link into the project shell (P2.3).
- */
 export function ProjectsPage() {
   const { projects, status, error, reload, addProject } = useProjects();
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState('grid');
   const [creating, setCreating] = useState(false);
   const pendingCreate = useUiStore((s) => s.pendingCreate);
 
@@ -28,105 +32,211 @@ export function ProjectsPage() {
     if (pendingCreate && consumePendingCreate('project')) setCreating(true);
   }, [pendingCreate]);
 
-  const count = projects.length;
+  const filtered = projects.filter(({ project }) =>
+    project?.name?.toLowerCase().includes(query.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground dark:text-dark-foreground">
-            Projects
-          </h1>
-          <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-            {status === 'ready' && count > 0
-              ? `${count} project${count === 1 ? '' : 's'} you're a member of`
-              : 'Projects you own or have been added to'}
-          </p>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        title="Projects"
+        description="All projects in your workspace."
+        actions={
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            New project
+          </Button>
+        }
+      />
+
+      {/* ── Toolbar: Search & View Switcher ──────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[200px] max-w-md flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            placeholder="Search projects…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="app-input pl-9"
+            aria-label="Search projects"
+          />
         </div>
 
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" aria-hidden />
-          New project
-        </Button>
-      </header>
+        <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
+          <button
+            type="button"
+            onClick={() => setView('grid')}
+            className={`flex h-7 w-7 items-center justify-center rounded transition ${
+              view === 'grid'
+                ? 'bg-accent text-accent-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+            aria-label="Grid view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className={`flex h-7 w-7 items-center justify-center rounded transition ${
+              view === 'list'
+                ? 'bg-accent text-accent-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+            aria-label="List view"
+          >
+            <ListIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
 
+      {/* ── Loading Skeleton ────────────────────────────── */}
       {status === 'loading' && (
         <div
           className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           aria-busy="true"
           aria-label="Loading projects"
         >
-          {[0, 1, 2].map((index) => (
+          {[0, 1, 2, 3, 4, 5].map((index) => (
             <div key={index} className="app-card p-5">
               <div className="flex items-start justify-between gap-3">
-                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-10 w-10 rounded-lg" />
                 <Skeleton className="h-5 w-16 rounded-full" />
               </div>
-              <Skeleton className="mt-4 h-4 w-full" />
-              <Skeleton className="mt-2 h-4 w-2/3" />
-              <Skeleton className="mt-6 h-3 w-32" />
+              <Skeleton className="mt-4 h-5 w-3/4" />
+              <Skeleton className="mt-2 h-4 w-full" />
+              <Skeleton className="mt-4 h-3 w-28" />
             </div>
           ))}
         </div>
       )}
 
+      {/* ── Error State ─────────────────────────────────── */}
       {status === 'error' && (
         <div className="app-card p-6 text-center" role="alert">
           <AlertCircle className="mx-auto h-8 w-8 text-danger" aria-hidden />
-          <p className="mt-3 font-medium text-foreground dark:text-dark-foreground">
+          <p className="mt-3 font-medium text-foreground">
             Couldn&rsquo;t load your projects
           </p>
-          <p className="mt-1 text-sm text-muted dark:text-dark-muted">{error}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{error}</p>
           <Button variant="outline" className="mt-4" onClick={reload}>
             Try again
           </Button>
         </div>
       )}
 
-      {status === 'ready' && count === 0 && (
+      {/* ── Empty State ─────────────────────────────────── */}
+      {status === 'ready' && filtered.length === 0 && (
         <EmptyState
           icon={FolderOpen}
-          title="No projects yet"
-          description="Projects hold your tasks, notes and teammates. Create your first one to get started."
+          title={query ? 'No matching projects' : 'No projects yet'}
+          description={
+            query
+              ? `No projects matched "${query}".`
+              : 'Create your first project to organize tasks, notes, and teammates.'
+          }
           action={
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" aria-hidden />
-              Create your first project
-            </Button>
+            query ? (
+              <Button variant="outline" onClick={() => setQuery('')}>
+                Clear search
+              </Button>
+            ) : (
+              <Button onClick={() => setCreating(true)}>
+                <Plus className="mr-1 h-4 w-4" />
+                New project
+              </Button>
+            )
           }
         />
       )}
 
-      {status === 'ready' && count > 0 && (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map(({ role, project }) => (
-            <li key={project._id} className="app-card flex flex-col p-5 transition hover:border-primary/40 dark:hover:border-dark-primary/40">
+      {/* ── Ready: Grid View ─────────────────────────────── */}
+      {status === 'ready' && filtered.length > 0 && view === 'grid' && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map(({ role, project }, i) => (
+            <motion.div
+              key={project._id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+            >
               <Link
                 to={`/projects/${project._id}`}
-                className="flex flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 rounded-xl"
+                className="block rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="font-medium text-foreground dark:text-dark-foreground">
-                    {project.name}
-                  </h2>
-                  <Badge variant={roleBadgeVariant(role)}>{roleLabel(role)}</Badge>
+                <div className="flex items-start justify-between">
+                  <div className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-to-br from-primary/20 to-[oklch(0.6_0.2_310)]/20 font-semibold text-primary">
+                    {project.name?.[0]?.toUpperCase() || 'P'}
+                  </div>
+                  {role && (
+                    <Badge variant={roleBadgeVariant(role)}>
+                      {roleLabel(role)}
+                    </Badge>
+                  )}
                 </div>
 
-                <p className="mt-2 line-clamp-2 flex-1 text-sm text-muted dark:text-dark-muted">
-                  {project.description || 'No description yet.'}
+                <h3 className="mt-4 font-semibold tracking-tight text-foreground">
+                  {project.name}
+                </h3>
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                  {project.description || 'No description provided.'}
                 </p>
 
-                <div className="mt-4 flex items-center justify-between text-xs text-muted dark:text-dark-muted">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5" aria-hidden />
-                    {memberCountLabel(project.members)}
+                <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {project.members
+                      ? `${project.members} member${project.members === 1 ? '' : 's'}`
+                      : '1 member'}
                   </span>
-                  {project.createdAt && <span>Created {formatDate(project.createdAt)}</span>}
+                  <span>{fromNow(project.updatedAt ?? project.createdAt)}</span>
                 </div>
               </Link>
-            </li>
+            </motion.div>
           ))}
-        </ul>
+        </div>
+      )}
+
+      {/* ── Ready: List View ────────────────────────────── */}
+      {status === 'ready' && filtered.length > 0 && view === 'list' && (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 font-medium">Project</th>
+                <th className="px-5 py-3 font-medium">Role</th>
+                <th className="px-5 py-3 font-medium">Updated</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map(({ role, project }) => (
+                <tr key={project._id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-5 py-3">
+                    <Link
+                      to={`/projects/${project._id}`}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {project.name}
+                    </Link>
+                    <div className="line-clamp-1 text-xs text-muted-foreground">
+                      {project.description || 'No description'}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    {role && (
+                      <Badge variant={roleBadgeVariant(role)}>
+                        {roleLabel(role)}
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground">
+                    {fromNow(project.updatedAt ?? project.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {creating && (

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Link, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Link } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.jsx';
 import { ProtectedLayout } from '../components/layout/ProtectedLayout.jsx';
 import { ProjectLayout } from '../components/layout/ProjectLayout.jsx';
@@ -8,10 +8,16 @@ import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { SettingsPage } from '../features/settings/SettingsPage.jsx';
 import { ProjectsPage } from '../features/projects/ProjectsPage.jsx';
 import { ProjectDashboardTab } from '../features/projects/ProjectDashboardTab.jsx';
+import { ProjectDiscussionsTab } from '../features/projects/ProjectDiscussionsTab.jsx';
 import { ProjectMembersTab } from '../features/projects/ProjectMembersTab.jsx';
 import { ProjectSettingsTab } from '../features/projects/ProjectSettingsTab.jsx';
 import { BoardPage } from '../features/board/BoardPage.jsx';
 import { NotesPage } from '../features/notes/NotesPage.jsx';
+import { LandingPage } from '../features/landing/LandingPage.jsx';
+import { DashboardPage } from '../features/dashboard/DashboardPage.jsx';
+import { WorkspaceNotesPage } from '../features/notes/WorkspaceNotesPage.jsx';
+import { MembersPage } from '../features/members/MembersPage.jsx';
+import { ProfilePage } from '../features/profile/ProfilePage.jsx';
 
 function NotFound() {
   return (
@@ -31,6 +37,7 @@ function NotFound() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/', element: <LandingPage /> },
   {
     element: <RedirectIfAuthed />,
     children: [
@@ -39,7 +46,6 @@ export const router = createBrowserRouter([
         children: [
           { path: '/login', element: <LoginPage /> },
           { path: '/register', element: <RegisterPage /> },
-          { path: '/', element: <Navigate to="/login" replace /> },
         ],
       },
     ],
@@ -50,6 +56,7 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedLayout />,
         children: [
+          { path: '/dashboard', element: <DashboardPage /> },
           { path: '/projects', element: <ProjectsPage /> },
           {
             path: '/projects/:projectId',
@@ -57,15 +64,19 @@ export const router = createBrowserRouter([
             children: [
               // Index route = Dashboard tab (deep-linkable: /projects/:id)
               { index: true, element: <ProjectDashboardTab /> },
+              { path: 'tasks', element: <BoardPage /> },
               { path: 'board', element: <BoardPage /> },
+              { path: 'discussions', element: <ProjectDiscussionsTab /> },
+              { path: 'comments', element: <ProjectDiscussionsTab /> },
               { path: 'notes', element: <NotesPage /> },
               { path: 'members', element: <ProjectMembersTab /> },
               { path: 'settings', element: <ProjectSettingsTab /> },
             ],
           },
+          { path: '/notes', element: <WorkspaceNotesPage /> },
+          { path: '/members', element: <MembersPage /> },
+          { path: '/profile', element: <ProfilePage /> },
           { path: '/settings', element: <SettingsPage /> },
-          // P4 workspace-wide notes view can reuse this shell later
-          { path: '/notes', element: <Navigate to="/projects" replace /> },
         ],
       },
     ],

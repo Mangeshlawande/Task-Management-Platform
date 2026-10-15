@@ -57,7 +57,7 @@ if (!hasClientBuild) {
   app.get('/', (_req, res) => {
     res.status(200).json({
       success: true,
-      message: 'Project Camp API is running.',
+      message: 'WorkPulse API is running.',
       data: { docs: '/api-docs', health: '/api/v1/healthcheck' },
     });
   });

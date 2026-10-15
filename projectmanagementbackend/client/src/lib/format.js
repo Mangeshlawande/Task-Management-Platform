@@ -72,4 +72,4 @@ export const statusBadgeVariant = (status) =>
 
 /** Task status → display label. */
 export const statusLabel = (status) =>
-  ({ todo: 'To do', in_progress: 'In progress', done: 'Done' }[status] ?? status);
+  ({ todo: 'To Do', in_progress: 'In Progress', done: 'Done' }[status] ?? status);

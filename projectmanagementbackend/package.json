@@ -19,7 +19,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
-  "name": "system",
+  "name": "workpulse-api",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",

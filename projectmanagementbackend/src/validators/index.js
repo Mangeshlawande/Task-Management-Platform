@@ -148,6 +148,30 @@ const deleteSubTaskValidator = () => [
 ];
 
 //
+// COMMENT VALIDATORS
+//
+
+const getCommentsValidator = () => [
+  mongoIdParam('projectId'),
+  mongoIdParam('taskId'),
+];
+
+const createCommentValidator = () => [
+  mongoIdParam('projectId'),
+  mongoIdParam('taskId'),
+  body('content')
+    .trim()
+    .notEmpty().withMessage('Comment content is required')
+    .isLength({ max: 2000 }).withMessage('Comment cannot exceed 2000 characters'),
+];
+
+const deleteCommentValidator = () => [
+  mongoIdParam('projectId'),
+  mongoIdParam('taskId'),
+  mongoIdParam('commentId'),
+];
+
+//
 // EXPORTS
 //
 
@@ -168,4 +192,7 @@ export {
   createSubTaskValidator,
   updateSubTaskValidator,
   deleteSubTaskValidator,
+  getCommentsValidator,
+  createCommentValidator,
+  deleteCommentValidator,
 };

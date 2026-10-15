@@ -1,4 +1,10 @@
-const sizes = { sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-14 w-14 text-lg' };
+const sizes = {
+  sm: 'h-7 w-7 text-xs',
+  md: 'h-9 w-9 text-sm',
+  lg: 'h-14 w-14 text-lg',
+  xl: 'h-20 w-20 text-2xl',
+  '2xl': 'h-24 w-24 text-3xl',
+};
 
 const palette = [
   'bg-indigo-500',

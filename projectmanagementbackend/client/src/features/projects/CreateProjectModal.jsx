@@ -96,7 +96,7 @@ export function CreateProjectModal({ onClose, onCreated }) {
         >
           <div className="relative">
             <FolderPlus
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden
             />
             <input
@@ -108,7 +108,7 @@ export function CreateProjectModal({ onClose, onCreated }) {
               autoComplete="off"
               data-autofocus
               className={`app-input pl-9 ${form.errors.name ? 'app-input-error' : ''}`}
-              placeholder="Website redesign"
+              placeholder="Atlas Web Relaunch"
               value={form.values.name}
               onChange={form.handleChange}
               aria-invalid={!!form.errors.name}

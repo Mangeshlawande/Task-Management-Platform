@@ -14,20 +14,20 @@ export function Modal({ open = true, onClose, title, description, children, foot
   const titleId = useId();
 
   useEffect(() => {
+    if (!open) return;
     const dialog = ref.current;
     if (!dialog) return;
 
-    if (open && !dialog.open) {
+    if (!dialog.open) {
       dialog.showModal();
       // showModal() focuses the first focusable child (our close button) —
       // prefer the element that asked for it.
       dialog.querySelector('[data-autofocus]')?.focus();
-    } else if (!open && dialog.open) {
-      dialog.close();
     }
   }, [open]);
 
   useEffect(() => {
+    if (!open) return undefined;
     const dialog = ref.current;
     if (!dialog) return undefined;
 
@@ -39,40 +39,51 @@ export function Modal({ open = true, onClose, title, description, children, foot
 
     dialog.addEventListener('cancel', handleCancel);
     return () => dialog.removeEventListener('cancel', handleCancel);
-  }, [onClose]);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const sizeClass = {
+    sm: 'max-w-md',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
+    '2xl': 'max-w-5xl',
+    full: 'max-w-6xl',
+  }[size] || 'max-w-lg';
 
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
       // p-0 so any click landing on the dialog itself is a backdrop click.
-      className={`m-auto w-[calc(100vw-2rem)] ${size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} rounded-xl border border-border bg-card p-0
+      className={`m-auto w-[calc(100vw-2rem)] ${sizeClass} max-h-[90vh] overflow-hidden rounded-xl border border-border bg-card p-0
         text-foreground shadow-xl backdrop:bg-slate-900/50
-        dark:border-dark-border dark:bg-dark-card dark:text-dark-foreground`}
+        dark:border-dark-border dark:bg-dark-card dark:text-dark-foreground flex flex-col`}
       onClick={(event) => {
         if (event.target === ref.current) onClose?.();
       }}
     >
       <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 dark:border-dark-border">
         <div>
-          <h2 id={titleId} className="font-semibold text-foreground dark:text-dark-foreground">
+          <h2 id={titleId} className="font-semibold text-foreground">
             {title}
           </h2>
           {description && (
-            <p className="mt-1 text-sm text-muted dark:text-dark-muted">{description}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           )}
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
-          className="rounded-lg p-1.5 text-muted transition hover:bg-surface-alt hover:text-foreground dark:text-dark-muted dark:hover:bg-dark-surface-alt dark:hover:text-dark-foreground"
+          className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
 
-      <div className="px-5 py-4">{children}</div>
+      <div className="overflow-y-auto px-5 py-4 max-h-[calc(90vh-130px)]">{children}</div>
 
       {footer && (
         <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-4 dark:border-dark-border">

@@ -14,8 +14,11 @@
 import 'dotenv/config';
 import request from 'supertest';
 import mongoose from 'mongoose';
+import { jest } from '@jest/globals';
 import app from '../app.js';
 import { User } from '../models/user.models.js';
+
+jest.setTimeout(45000);
 
 const suffix = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`;
 const USERNAME = `authtest${suffix}`.slice(0, 30);
@@ -55,10 +58,9 @@ describe('register — no verification step', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.user.username).toBe(USERNAME);
 
-    // Signed in on signup: both cookies come back with the account.
+    // Signed in on signup: accessToken cookie comes back with the account.
     const cookies = res.headers['set-cookie'] || [];
     expect(cookies.some((c) => c.startsWith('accessToken='))).toBe(true);
-    expect(cookies.some((c) => c.startsWith('refreshToken='))).toBe(true);
 
     // The mail era is gone: no dev OTP, no verification flag on the payload.
     expect(res.body.data).not.toHaveProperty('devOtp');

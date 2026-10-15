@@ -1,4 +1,4 @@
-# Project Camp — Fixes Applied
+# WorkPulse (formerly Project Camp) — Fixes Applied
 
 This document summarizes every change made to the original codebase. The
 backend (`projectmanagementbackend/`) and the frontend

@@ -1,43 +1,64 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client.js';
 import { tasksApi } from '../../api/tasks.js';
+import { useCacheStore } from '../../stores/cacheStore.js';
 
 /**
  * Owns the task list for the board (docs/05 P3).
  * status: loading | ready | error.
  *
+ * Uses memory cache and project shell tasks for instant 0ms render.
  * Moves are optimistic — the card changes column immediately and rolls back
- * if the API rejects (403 for a member moving someone else's task, 404 if it
- * was deleted meanwhile). The caller turns the rejection into a toast.
+ * if the API rejects.
  */
-export function useBoardTasks(projectId) {
-  const [tasks, setTasks] = useState([]);
-  const [status, setStatus] = useState('loading');
+export function useBoardTasks(projectId, initialTasks = []) {
+  const cached = useCacheStore.getState().get(`/api/v1/projects/${projectId}/tasks`);
+  const initial = Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : (cached || []);
+  const [tasks, setTasks] = useState(initial);
+  const [status, setStatus] = useState(
+    (Array.isArray(initialTasks) && initialTasks.length > 0) || cached !== null ? 'ready' : 'loading'
+  );
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setStatus('loading');
+  // Sync if parent updates initialTasks
+  useEffect(() => {
+    if (Array.isArray(initialTasks) && initialTasks.length > 0) {
+      setTasks(initialTasks);
+      setStatus('ready');
+    }
+  }, [initialTasks]);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setStatus('loading');
     setError(null);
     try {
-      setTasks(await tasksApi.list(projectId));
+      const data = await tasksApi.list(projectId);
+      setTasks(data);
       setStatus('ready');
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Could not load tasks.',
-      );
-      setStatus('error');
+      if (!silent) {
+        setError(
+          err instanceof ApiError ? err.message : 'Could not load tasks.',
+        );
+        setStatus('error');
+      }
     }
   }, [projectId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const hasInitial = (Array.isArray(initialTasks) && initialTasks.length > 0) || cached !== null;
+    load(hasInitial);
+  }, [projectId, load]);
 
   /** POST multipart → prepended (the API returns newest-first). */
   const createTask = useCallback(
     async (formData) => {
       const created = await tasksApi.create(projectId, formData);
-      setTasks((list) => [created, ...list]);
+      setTasks((list) => {
+        const nextList = [created, ...list];
+        useCacheStore.getState().set(`/api/v1/projects/${projectId}/tasks`, nextList);
+        return nextList;
+      });
       return created;
     },
     [projectId],
@@ -49,24 +70,30 @@ export function useBoardTasks(projectId) {
       if (task.status === nextStatus) return task;
       const previous = task.status;
 
-      setTasks((list) =>
-        list.map((t) => (t._id === task._id ? { ...t, status: nextStatus } : t)),
-      );
+      setTasks((list) => {
+        const nextList = list.map((t) => (t._id === task._id ? { ...t, status: nextStatus } : t));
+        useCacheStore.getState().set(`/api/v1/projects/${projectId}/tasks`, nextList);
+        return nextList;
+      });
 
       try {
         const updated = await tasksApi.update(projectId, task._id, {
           status: nextStatus,
         });
-        setTasks((list) =>
-          list.map((t) => (t._id === task._id ? updated : t)),
-        );
+        setTasks((list) => {
+          const nextList = list.map((t) => (t._id === task._id ? updated : t));
+          useCacheStore.getState().set(`/api/v1/projects/${projectId}/tasks`, nextList);
+          return nextList;
+        });
         return updated;
       } catch (err) {
-        setTasks((list) =>
-          list.map((t) =>
+        setTasks((list) => {
+          const rollbackList = list.map((t) =>
             t._id === task._id ? { ...t, status: previous } : t,
-          ),
-        );
+          );
+          useCacheStore.getState().set(`/api/v1/projects/${projectId}/tasks`, rollbackList);
+          return rollbackList;
+        });
         throw err;
       }
     },
@@ -75,14 +102,20 @@ export function useBoardTasks(projectId) {
 
   /** Merge a saved Task from the detail modal into the board row. */
   const patchTask = useCallback((taskId, patch) => {
-    setTasks((list) =>
-      list.map((t) => (t._id === taskId ? { ...t, ...patch } : t)),
-    );
-  }, []);
+    setTasks((list) => {
+      const nextList = list.map((t) => (t._id === taskId ? { ...t, ...patch } : t));
+      useCacheStore.getState().set(`/api/v1/projects/${projectId}/tasks`, nextList);
+      return nextList;
+    });
+  }, [projectId]);
 
   const removeTask = useCallback(async (taskId) => {
-    setTasks((list) => list.filter((t) => t._id !== taskId));
-  }, []);
+    setTasks((list) => {
+      const nextList = list.filter((t) => t._id !== taskId);
+      useCacheStore.getState().set(`/api/v1/projects/${projectId}/tasks`, nextList);
+      return nextList;
+    });
+  }, [projectId]);
 
   return {
     tasks,

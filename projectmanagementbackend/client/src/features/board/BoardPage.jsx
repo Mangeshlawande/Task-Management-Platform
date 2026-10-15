@@ -1,8 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Inbox, Paperclip, Plus, RefreshCw, Search } from 'lucide-react';
+import {
+  AlertCircle,
+  Inbox,
+  KanbanSquare,
+  List as ListIcon,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  DragOverlay,
+  closestCorners,
+} from '@dnd-kit/core';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
 import {
-  Avatar,
   Badge,
   Button,
   EmptyState,
@@ -21,10 +39,161 @@ import { TaskCreateModal } from './TaskCreateModal.jsx';
 import { TaskDetailModal } from './TaskDetailModal.jsx';
 
 const COLUMNS = [
-  { status: 'todo', label: 'To do', dot: 'bg-slate-400 dark:bg-slate-500' },
-  { status: 'in_progress', label: 'In progress', dot: 'bg-primary' },
+  { status: 'todo', label: 'To Do', dot: 'bg-slate-400 dark:bg-slate-500' },
+  { status: 'in_progress', label: 'In Progress', dot: 'bg-primary' },
   { status: 'done', label: 'Done', dot: 'bg-success' },
 ];
+
+function TaskCardInner({ task, editable, overdue, onOpen, onMove, isOverlay = false }) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full text-left"
+      >
+        <span className="block text-sm font-medium leading-snug text-foreground line-clamp-2 dark:text-dark-foreground">
+          {task.title}
+        </span>
+      </button>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <Badge variant={priorityBadgeVariant(task.priority)}>
+          {task.priority}
+        </Badge>
+        {task.dueDate && (
+          <span
+            className={`inline-flex items-center gap-1 text-[11px] ${
+              overdue
+                ? 'text-danger'
+                : 'text-muted dark:text-dark-muted'
+            }`}
+          >
+            {formatDate(task.dueDate)}
+            {overdue && ' · overdue'}
+          </span>
+        )}
+        {task.attachments?.length > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[11px] text-muted dark:text-dark-muted"
+            title={`${task.attachments.length} attachment(s)`}
+          >
+            <Paperclip className="h-3 w-3" aria-hidden />
+            {task.attachments.length}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="inline-flex min-w-0 items-center text-xs text-muted dark:text-dark-muted">
+          {task.assignedTo ? (
+            <span className="truncate">
+              {task.assignedTo.fullName || task.assignedTo.username}
+            </span>
+          ) : (
+            'Unassigned'
+          )}
+        </span>
+
+        {editable && !isOverlay && (
+          <select
+            aria-label={`Move “${task.title}” to another column`}
+            className="app-input h-7 w-28 shrink-0 py-0 text-xs"
+            value={task.status}
+            onChange={(event) => onMove(task, event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            {COLUMNS.map((option) => (
+              <option key={option.status} value={option.status}>
+                {statusLabel(option.status)}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    </>
+  );
+}
+
+function DraggableTaskCard({ task, editable, overdue, dragOverStatus, onOpen, onMove }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task._id,
+    disabled: !editable,
+  });
+
+  return (
+    <li
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      draggable={editable}
+      onDragStart={(event) => {
+        event.dataTransfer?.setData('text/plain', task._id);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      }}
+      className={`rounded-lg border border-border bg-card p-3 transition
+        hover:border-primary/40 hover:shadow-sm
+        dark:border-dark-border dark:bg-dark-card
+        ${editable ? 'cursor-grab active:cursor-grabbing touch-none' : ''}
+        ${isDragging ? 'opacity-30' : ''}
+        ${dragOverStatus && task.status !== dragOverStatus ? 'opacity-60' : ''}`}
+    >
+      <TaskCardInner
+        task={task}
+        editable={editable}
+        overdue={overdue}
+        onOpen={onOpen}
+        onMove={onMove}
+      />
+    </li>
+  );
+}
+
+function DroppableColumn({
+  column,
+  items,
+  isTarget,
+  onNativeDragOver,
+  onNativeDragLeave,
+  onNativeDrop,
+  children,
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.status });
+
+  return (
+    <section
+      ref={setNodeRef}
+      aria-label={`${column.label} column`}
+      onDragOver={onNativeDragOver}
+      onDragLeave={onNativeDragLeave}
+      onDrop={onNativeDrop}
+      className={`app-card flex flex-col p-3 transition
+        ${isTarget || isOver ? 'ring-2 ring-primary/60 bg-primary/5 dark:bg-primary/10' : ''}`}
+    >
+      <header className="mb-3 flex items-center gap-2 px-1">
+        <span className={`h-2 w-2 rounded-full ${column.dot}`} aria-hidden />
+        <h2 className="text-sm font-semibold text-foreground dark:text-dark-foreground">
+          {column.label}
+        </h2>
+        <span className="ml-auto rounded-full bg-surface-alt px-2 py-0.5 text-xs text-muted dark:bg-dark-surface-alt dark:text-dark-muted">
+          {items.length}
+        </span>
+      </header>
+
+      <ul className="min-h-[6rem] flex-1 space-y-3">
+        {items.length === 0 ? (
+          <li className="px-1 py-6 text-center text-xs text-muted dark:text-dark-muted">
+            No tasks
+          </li>
+        ) : (
+          children
+        )}
+      </ul>
+    </section>
+  );
+}
+
 
 /**
  * P3 — Kanban board (docs/05 P3).
@@ -36,17 +205,33 @@ const COLUMNS = [
  *   create; everyone can open tasks and tick subtasks.
  */
 export function BoardPage() {
-  const { project, members, myRole } = useProject();
+  const { project, members, tasks: projectTasks, myRole } = useProject();
   const currentUserId = useAuthStore((s) => s.user?._id);
-  const board = useBoardTasks(project._id);
+  const board = useBoardTasks(project._id, projectTasks);
 
   const [query, setQuery] = useState('');
+  const [view, setView] = useState('board');
   const [assignee, setAssignee] = useState('all');
   const [priority, setPriority] = useState('all');
   const [creating, setCreating] = useState(false);
   const pendingCreate = useUiStore((s) => s.pendingCreate);
   const [openTaskId, setOpenTaskId] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [activeTask, setActiveTask] = useState(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const handleDndDragEnd = (event) => {
+    setActiveTask(null);
+    const { active, over } = event;
+    if (!over) return;
+    const newStatus = over.id;
+    const task = board.tasks.find((t) => t._id === active.id);
+    if (task && canMove(task) && task.status !== newStatus) {
+      handleMove(task, newStatus);
+    }
+  };
 
   const canCreate = canManageContent(myRole);
 
@@ -193,6 +378,33 @@ export function BoardPage() {
         </Button>
       )}
 
+      <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+        <button
+          type="button"
+          onClick={() => setView('board')}
+          className={`flex h-7 w-7 items-center justify-center rounded transition ${
+            view === 'board'
+              ? 'bg-accent text-accent-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          }`}
+          aria-label="Board view"
+        >
+          <KanbanSquare className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('list')}
+          className={`flex h-7 w-7 items-center justify-center rounded transition ${
+            view === 'list'
+              ? 'bg-accent text-accent-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          }`}
+          aria-label="List view"
+        >
+          <ListIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       {canCreate && (
         <Button size="sm" onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" aria-hidden />
@@ -249,46 +461,89 @@ export function BoardPage() {
             </Button>
           </div>
         </div>
+      ) : view === 'list' ? (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 font-medium">Task</th>
+                <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Priority</th>
+                <th className="px-5 py-3 font-medium">Assignee</th>
+                <th className="px-5 py-3 font-medium">Due Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((t) => (
+                <tr
+                  key={t._id}
+                  className="cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setOpenTaskId(t._id)}
+                >
+                  <td className="px-5 py-3 font-medium text-foreground">
+                    {t.title}
+                    {t.description && (
+                      <div className="line-clamp-1 text-xs font-normal text-muted-foreground">
+                        {t.description}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    <Badge variant="outline">{statusLabel(t.status)}</Badge>
+                  </td>
+                  <td className="px-5 py-3">
+                    <Badge variant={priorityBadgeVariant(t.priority)}>{t.priority}</Badge>
+                  </td>
+                  <td className="px-5 py-3">
+                    {t.assignedTo ? (
+                      <span className="text-xs text-foreground truncate">
+                        {t.assignedTo.fullName || t.assignedTo.username}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-xs text-muted-foreground">
+                    {t.dueDate ? formatDate(t.dueDate) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-3">
-          {COLUMNS.map((column) => {
-            const items = byStatus[column.status] ?? [];
-            const isTarget = dragOver === column.status;
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={(event) => {
+            const task = board.tasks.find((t) => t._id === event.active.id);
+            setActiveTask(task || null);
+          }}
+          onDragEnd={handleDndDragEnd}
+          onDragCancel={() => setActiveTask(null)}
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            {COLUMNS.map((column) => {
+              const items = byStatus[column.status] ?? [];
+              const isTarget = dragOver === column.status;
 
-            return (
-              <section
-                key={column.status}
-                aria-label={`${column.label} column`}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragOver(column.status);
-                }}
-                onDragLeave={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) {
-                    setDragOver(null);
-                  }
-                }}
-                onDrop={(event) => handleDrop(event, column.status)}
-                className={`app-card flex flex-col p-3 transition
-                  ${isTarget ? 'ring-2 ring-primary/60' : ''}`}
-              >
-                <header className="mb-3 flex items-center gap-2 px-1">
-                  <span className={`h-2 w-2 rounded-full ${column.dot}`} aria-hidden />
-                  <h2 className="text-sm font-semibold text-foreground dark:text-dark-foreground">
-                    {column.label}
-                  </h2>
-                  <span className="ml-auto rounded-full bg-surface-alt px-2 py-0.5 text-xs text-muted dark:bg-dark-surface-alt dark:text-dark-muted">
-                    {items.length}
-                  </span>
-                </header>
-
-                <ul className="min-h-[6rem] flex-1 space-y-3">
-                  {items.length === 0 && (
-                    <li className="px-1 py-6 text-center text-xs text-muted dark:text-dark-muted">
-                      No tasks
-                    </li>
-                  )}
-
+              return (
+                <DroppableColumn
+                  key={column.status}
+                  column={column}
+                  items={items}
+                  isTarget={isTarget}
+                  onNativeDragOver={(event) => {
+                    event.preventDefault();
+                    setDragOver(column.status);
+                  }}
+                  onNativeDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                      setDragOver(null);
+                    }
+                  }}
+                  onNativeDrop={(event) => handleDrop(event, column.status)}
+                >
                   {items.map((task) => {
                     const editable = canMove(task);
                     const overdue =
@@ -297,94 +552,39 @@ export function BoardPage() {
                       new Date(task.dueDate) < new Date();
 
                     return (
-                      <li
+                      <DraggableTaskCard
                         key={task._id}
-                        draggable={editable}
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData('text/plain', task._id);
-                          event.dataTransfer.effectAllowed = 'move';
-                        }}
-                        onDragEnd={() => setDragOver(null)}
-                        className={`cursor-grab rounded-lg border border-border bg-card p-3
-                          transition hover:border-primary/40 hover:shadow-sm active:cursor-grabbing
-                          dark:border-dark-border dark:bg-dark-card
-                          ${dragOver && task.status !== column.status ? 'opacity-60' : ''}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setOpenTaskId(task._id)}
-                          className="block w-full text-left"
-                        >
-                          <span className="block text-sm font-medium leading-snug text-foreground line-clamp-2 dark:text-dark-foreground">
-                            {task.title}
-                          </span>
-                        </button>
-
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <Badge variant={priorityBadgeVariant(task.priority)}>
-                            {task.priority}
-                          </Badge>
-                          {task.dueDate && (
-                            <span
-                              className={`inline-flex items-center gap-1 text-[11px] ${
-                                overdue
-                                  ? 'text-danger'
-                                  : 'text-muted dark:text-dark-muted'
-                              }`}
-                            >
-                              {formatDate(task.dueDate)}
-                              {overdue && ' · overdue'}
-                            </span>
-                          )}
-                          {task.attachments?.length > 0 && (
-                            <span
-                              className="inline-flex items-center gap-0.5 text-[11px] text-muted dark:text-dark-muted"
-                              title={`${task.attachments.length} attachment(s)`}
-                            >
-                              <Paperclip className="h-3 w-3" aria-hidden />
-                              {task.attachments.length}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted dark:text-dark-muted">
-                            {task.assignedTo ? (
-                              <>
-                                <Avatar user={task.assignedTo} size="sm" />
-                                <span className="truncate">
-                                  {task.assignedTo.fullName || task.assignedTo.username}
-                                </span>
-                              </>
-                            ) : (
-                              'Unassigned'
-                            )}
-                          </span>
-
-                          {editable && (
-                            <select
-                              aria-label={`Move “${task.title}” to another column`}
-                              className="app-input h-7 w-28 shrink-0 py-0 text-xs"
-                              value={task.status}
-                              onChange={(event) => handleMove(task, event.target.value)}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              {COLUMNS.map((option) => (
-                                <option key={option.status} value={option.status}>
-                                  {statusLabel(option.status)}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      </li>
+                        task={task}
+                        editable={editable}
+                        overdue={overdue}
+                        dragOverStatus={dragOver}
+                        onOpen={() => setOpenTaskId(task._id)}
+                        onMove={handleMove}
+                      />
                     );
                   })}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
+                </DroppableColumn>
+              );
+            })}
+          </div>
+
+          <DragOverlay>
+            {activeTask && (
+              <div className="rotate-2 cursor-grabbing opacity-90">
+                <div className="rounded-lg border border-border bg-card p-3 shadow-xl dark:border-dark-border dark:bg-dark-card">
+                  <TaskCardInner
+                    task={activeTask}
+                    editable={false}
+                    overdue={false}
+                    onOpen={() => {}}
+                    onMove={() => {}}
+                    isOverlay={true}
+                  />
+                </div>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {creating && (

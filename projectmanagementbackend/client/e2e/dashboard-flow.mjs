@@ -124,6 +124,31 @@ try {
   );
   const segCount = await page.$$eval('svg[role="img"] circle', (els) => els.length);
   ok('ring + 3 segments drawn', segCount === 4, `circles: ${segCount}`);
+
+  // Regression guard: `segment.dash` must reach stroke-dasharray. If it does
+  // not, the attribute becomes "undefined NaN" (invalid → ignored) and every
+  // segment paints a full ring — the donut collapses to one solid colour.
+  const dashes = await page.evaluate(() => {
+    const card = [...document.querySelectorAll('h2')].find((h) =>
+      h.textContent.includes('Status breakdown'),
+    )?.closest('div.app-card');1
+    return [...card.querySelectorAll('svg circle')].map((c) =>
+      c.getAttribute('stroke-dasharray'),
+    );
+  });
+  const segmentDashes = dashes.slice(1); // 0 = the empty base ring
+  ok(
+    'every segment has a numeric stroke-dasharray',
+    segmentDashes.length === 3 &&
+      segmentDashes.every((d) => /^\d+(\.\d+)? \d+(\.\d+)?$/.test(d || '')),
+    JSON.stringify(dashes),
+  );
+  const [todoDash, progDash, doneDash] = segmentDashes.map((d) => parseFloat(d));
+  ok(
+    'dash lengths follow the 4 / 3 / 2 split',
+    todoDash > progDash && progDash > doneDash,
+    JSON.stringify(segmentDashes),
+  );
   await shot('dashboard-01-donut');
 
   step('DASH-03 — empty project → zeroed chart, no NaN');

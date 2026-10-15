@@ -1,6 +1,6 @@
-# Project Camp — Frontend (client/)
+# WorkPulse — Frontend (client/)
 
-Modern SPA for the Project Camp backend (React 19 + Vite + Tailwind v4 + Zustand).
+Modern SPA for the WorkPulse workspace platform (React 19 + Vite + Tailwind v4 + Zustand).
 Specs live in the backend repo's [`docs/`](../docs/) folder — start with `01-overview.md`.
 
 ## Quick start

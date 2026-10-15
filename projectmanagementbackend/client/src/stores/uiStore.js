@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/** UI-only state: theme, toasts. Persisted under 'project-camp-ui' (index.html reads theme pre-paint). */
+/** UI-only state: theme, toasts. Persisted under 'workpulse-ui' (index.html reads theme pre-paint). */
 
 const applyTheme = (theme) => {
   const dark =
@@ -52,6 +52,12 @@ export const useUiStore = create(
         set((s) => ({ paletteOpen: !s.paletteOpen }));
       },
 
+      sidebarCollapsed: false,
+
+      toggleSidebar() {
+        set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed }));
+      },
+
       /** { kind: 'project' | 'task' | 'note', projectId?, ts } */
       pendingCreate: null,
 
@@ -60,8 +66,8 @@ export const useUiStore = create(
       },
     }),
     {
-      name: 'project-camp-ui',
-      partialize: (s) => ({ theme: s.theme }), // toasts/palette/pending are not persisted
+      name: 'workpulse-ui',
+      partialize: (s) => ({ theme: s.theme, sidebarCollapsed: s.sidebarCollapsed }), // persisted preferences
       onRehydrateStorage: () => (state) => {
         if (state?.theme) applyTheme(state.theme === 'system' ? getSystemTheme() : state.theme);
       },

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Task } from '#models/task.models.js';
 import { Project } from '#models/project.models.js';
 import { SubTask } from '#models/subtask.models.js';
+import { Comment } from '#models/comment.models.js';
 import { User } from '#models/user.models.js';
 import { ProjectMember } from '#models/projectmember.models.js';
 
@@ -67,6 +68,11 @@ const getTasks = asyncHandler(async (req, res) => {
   const tasks = await Task.find({ project: projectId })
     .populate('assignedTo', 'avatar username fullName email')
     .populate('assignedBy', 'avatar username fullName')
+    .populate({
+      path: 'dependsOn',
+      select: '_id title status priority assignedTo',
+      populate: { path: 'assignedTo', select: '_id username fullName avatar' },
+    })
     .sort({ createdAt: -1 });
 
   return res
@@ -83,7 +89,7 @@ const createTask = asyncHandler(async (req, res) => {
 
   validateObjectId(projectId, 'projectId');
 
-  const { title, description, assignedTo, status, priority, dueDate } =
+  const { title, description, assignedTo, status, priority, dueDate, dependsOn } =
     req.body;
 
   const project = await Project.exists({ _id: projectId });
@@ -117,6 +123,12 @@ const createTask = asyncHandler(async (req, res) => {
     size: file.size,
   }));
 
+  const parsedDependsOn = Array.isArray(dependsOn)
+    ? dependsOn
+    : typeof dependsOn === 'string' && dependsOn.trim()
+    ? [dependsOn.trim()]
+    : [];
+
   const task = await Task.create({
     title: title.trim(),
     description: description?.trim() || '',
@@ -126,6 +138,7 @@ const createTask = asyncHandler(async (req, res) => {
     status: status || TaskStatusEnum.TODO,
     priority,
     dueDate,
+    dependsOn: parsedDependsOn,
     attachments,
   });
 
@@ -211,6 +224,37 @@ const getTaskById = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: 'tasks',
+        localField: 'dependsOn',
+        foreignField: '_id',
+        as: 'dependsOn',
+        pipeline: [
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'assignedTo',
+              foreignField: '_id',
+              as: 'assignedTo',
+              pipeline: [
+                {
+                  $project: { _id: 1, username: 1, fullName: 1, avatar: 1 },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              assignedTo: { $arrayElemAt: ['$assignedTo', 0] },
+            },
+          },
+          {
+            $project: { _id: 1, title: 1, status: 1, priority: 1, assignedTo: 1 },
+          },
+        ],
+      },
+    },
+    {
       $addFields: {
         assignedTo: { $arrayElemAt: ['$assignedTo', 0] },
         assignedBy: { $arrayElemAt: ['$assignedBy', 0] },
@@ -254,7 +298,7 @@ const updateTask = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'Not allowed to update this task');
   }
 
-  const { title, description, status, assignedTo, priority, dueDate } =
+  const { title, description, status, assignedTo, priority, dueDate, dependsOn } =
     req.body;
 
   if (title !== undefined && !title.trim()) {
@@ -273,6 +317,13 @@ const updateTask = asyncHandler(async (req, res) => {
   if (assignedTo !== undefined) task.assignedTo = assignedTo;
   if (priority !== undefined) task.priority = priority;
   if (dueDate !== undefined) task.dueDate = dueDate;
+  if (dependsOn !== undefined) {
+    task.dependsOn = Array.isArray(dependsOn)
+      ? dependsOn
+      : typeof dependsOn === 'string' && dependsOn.trim()
+      ? [dependsOn.trim()]
+      : [];
+  }
 
   await task.save();
 
@@ -313,6 +364,7 @@ const deleteTask = asyncHandler(async (req, res) => {
   try {
     await Task.deleteOne({ _id: taskId }, { session });
     await SubTask.deleteMany({ task: taskId }, { session });
+    await Comment.deleteMany({ task: taskId }, { session });
 
     await session.commitTransaction();
     session.endSession();

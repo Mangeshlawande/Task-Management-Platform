@@ -9,7 +9,9 @@ import { Project } from '#models/project.models.js';
 import { ProjectMember } from '#models/projectmember.models.js';
 import { Task } from '#models/task.models.js';
 import { SubTask } from '#models/subtask.models.js';
+import { Comment } from '#models/comment.models.js';
 import { ProjectNote } from '#models/note.models.js';
+import { invalidateUserAuthCache } from '#middlewares/auth.middleware.js';
 import mongoose from 'mongoose';
 
 /* =========================================================
@@ -23,23 +25,11 @@ const cookieOptions = {
 };
 
 /* =========================================================
-   GENERATE ACCESS & REFRESH TOKEN
+   GENERATE SINGLE ACCESS TOKEN
 ========================================================= */
 
-const generateAccessAndRefreshToken = async (userId) => {
-  const user = await User.findById(userId).select('+refreshToken');
-
-  if (!user) {
-    throw new ApiError(404, 'User not found');
-  }
-
-  const accessToken = user.generateAccessToken();
-  const refreshToken = user.generateRefreshToken();
-
-  user.refreshToken = refreshToken;
-  await user.save({ validateBeforeSave: false });
-
-  return { accessToken, refreshToken };
+const generateAccessToken = (user) => {
+  return user.generateAccessToken();
 };
 
 /* =========================================================
@@ -75,23 +65,17 @@ const registerUser = asyncHandler(async (req, res) => {
 
   await user.save();
 
-  // No verification step: the account is usable the moment it exists, so
-  // register logs the user in exactly like login does (httpOnly cookies +
-  // tokens in the body).
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user._id
-  );
-
+  // Single clean auth token (httpOnly accessToken cookie + token in body).
+  const accessToken = generateAccessToken(user);
   const createdUser = await User.findById(user._id);
 
   return res
     .status(201)
     .cookie('accessToken', accessToken, cookieOptions)
-    .cookie('refreshToken', refreshToken, cookieOptions)
     .json(
       new ApiResponse(
         201,
-        { user: createdUser, accessToken, refreshToken },
+        { user: createdUser, accessToken, token: accessToken },
         'Account created successfully'
       )
     );
@@ -112,7 +96,7 @@ const loginUser = asyncHandler(async (req, res) => {
     ? { email: email.toLowerCase() }
     : { username: username.toLowerCase() };
 
-  const user = await User.findOne(query).select('+password +refreshToken');
+  const user = await User.findOne(query).select('+password');
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -124,20 +108,17 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user._id
-  );
-
+  // Single clean auth token.
+  const accessToken = generateAccessToken(user);
   const loggedInUser = await User.findById(user._id);
 
   return res
     .status(200)
     .cookie('accessToken', accessToken, cookieOptions)
-    .cookie('refreshToken', refreshToken, cookieOptions)
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser, accessToken, refreshToken },
+        { user: loggedInUser, accessToken, token: accessToken },
         'User logged in successfully'
       )
     );
@@ -148,16 +129,12 @@ const loginUser = asyncHandler(async (req, res) => {
 ========================================================= */
 
 const logoutUser = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(
-    req.user._id,
-    { $unset: { refreshToken: 1 } },
-    { new: true }
-  );
-
+  if (req.user?._id) {
+    invalidateUserAuthCache(req.user._id);
+  }
   return res
     .status(200)
     .clearCookie('accessToken', cookieOptions)
-    .clearCookie('refreshToken', cookieOptions)
     .json(new ApiResponse(200, {}, 'User logged out successfully'));
 });
 
@@ -196,6 +173,10 @@ const deleteAccount = asyncHandler(async (req, res) => {
 
       await SubTask.deleteMany({ task: { $in: taskIds } }, { session });
       await Task.deleteMany({ project: { $in: ownedProjectIds } }, { session });
+      await Comment.deleteMany(
+        { project: { $in: ownedProjectIds } },
+        { session }
+      );
       await ProjectNote.deleteMany(
         { project: { $in: ownedProjectIds } },
         { session }
@@ -207,15 +188,17 @@ const deleteAccount = asyncHandler(async (req, res) => {
       await Project.deleteMany({ _id: { $in: ownedProjectIds } }, { session });
     }
 
+    await Comment.deleteMany({ author: userId }, { session });
     await User.findByIdAndDelete(userId, { session });
 
     await session.commitTransaction();
     session.endSession();
 
+    invalidateUserAuthCache(userId);
+
     return res
       .status(200)
       .clearCookie('accessToken', cookieOptions)
-      .clearCookie('refreshToken', cookieOptions)
       .json(new ApiResponse(200, {}, 'Account deleted successfully'));
   } catch (error) {
     await session.abortTransaction();
@@ -225,50 +208,46 @@ const deleteAccount = asyncHandler(async (req, res) => {
 });
 
 /* =========================================================
-   REFRESH ACCESS TOKEN
+   REFRESH / RENEW ACCESS TOKEN
 ========================================================= */
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body?.refreshToken;
+  const token =
+    req.cookies?.accessToken ||
+    (req.header('Authorization')?.startsWith('Bearer ')
+      ? req.header('Authorization').split(' ')[1]
+      : null);
 
-  if (!incomingRefreshToken) {
+  if (!token) {
     throw new ApiError(401, 'Unauthorized request');
   }
 
   try {
     const decodedToken = jwt.verify(
-      incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
+      token,
+      process.env.ACCESS_TOKEN_SECRET
     );
 
-    const user = await User.findById(decodedToken?._id).select('+refreshToken');
+    const user = await User.findById(decodedToken?._id);
 
     if (!user) {
-      throw new ApiError(401, 'Invalid refresh token');
+      throw new ApiError(401, 'Invalid access token');
     }
 
-    if (incomingRefreshToken !== user.refreshToken) {
-      throw new ApiError(401, 'Refresh token expired or already used');
-    }
-
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-      user._id
-    );
+    const accessToken = generateAccessToken(user);
 
     return res
       .status(200)
       .cookie('accessToken', accessToken, cookieOptions)
-      .cookie('refreshToken', refreshToken, cookieOptions)
       .json(
         new ApiResponse(
           200,
-          { accessToken, refreshToken },
+          { accessToken, token: accessToken },
           'Access token refreshed successfully'
         )
       );
   } catch (error) {
-    throw new ApiError(401, error?.message || 'Invalid refresh token');
+    throw new ApiError(401, error?.message || 'Invalid or expired token');
   }
 });
 
@@ -283,9 +262,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Old password and new password are required');
   }
 
-  const user = await User.findById(req.user?._id).select(
-    '+password +refreshToken'
-  );
+  const user = await User.findById(req.user?._id).select('+password');
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -298,13 +275,13 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   }
 
   user.password = newPassword;
-  user.refreshToken = undefined;
   await user.save();
+
+  invalidateUserAuthCache(user._id);
 
   return res
     .status(200)
     .clearCookie('accessToken', cookieOptions)
-    .clearCookie('refreshToken', cookieOptions)
     .json(new ApiResponse(200, {}, 'Password changed successfully'));
 });
 

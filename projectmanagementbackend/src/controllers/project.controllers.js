@@ -5,6 +5,7 @@ import { Project } from '#models/project.models.js';
 import { ProjectMember } from '#models/projectmember.models.js';
 import { Task } from '#models/task.models.js';
 import { SubTask } from '#models/subtask.models.js';
+import { Comment } from '#models/comment.models.js';
 import { ProjectNote } from '#models/note.models.js';
 
 import { ApiResponse } from '#utils/ApiResponse.js';
@@ -226,6 +227,7 @@ const deleteProject = asyncHandler(async (req, res) => {
 
     await SubTask.deleteMany({ task: { $in: taskIds } }, { session });
     await Task.deleteMany({ project: projectId }, { session });
+    await Comment.deleteMany({ project: projectId }, { session });
     await ProjectNote.deleteMany({ project: projectId }, { session });
     await ProjectMember.deleteMany({ project: projectId }, { session });
     await Project.findByIdAndDelete(projectId, { session });

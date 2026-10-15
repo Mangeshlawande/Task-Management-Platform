@@ -8,25 +8,45 @@ import { fromNow, statusBadgeVariant, statusLabel } from '../../lib/format.js';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
 import { StatusBreakdownChart } from './StatusBreakdownChart.jsx';
 
+import { useCacheStore } from '../../stores/cacheStore.js';
+
 /**
  * Dashboard tab — the shell's index route.
  * P5.1 scope (stat cards / member count / recent tasks) lives here, plus the
  * hand-rolled status donut (docs/07 § 2.4). Numbers come from the dedicated
  * dashboard endpoint so they match the kanban exactly without aggregating
  * client-side.
+ *
+ * Uses memory cache and project shell tasks for instant 0ms render.
  */
 export function ProjectDashboardTab() {
-  const { project } = useProject();
+  const { project, members, tasks } = useProject();
+  const cached = useCacheStore.getState().get(`/api/v1/projects/${project._id}/dashboard`);
 
-  const [data, setData] = useState(null);
-  const [status, setStatus] = useState('loading');
+  // Fast client-side derivation from already loaded project shell data if cached is not yet set
+  const derivedStats = tasks ? {
+    todo: tasks.filter((t) => t.status === 'todo').length,
+    in_progress: tasks.filter((t) => t.status === 'in_progress').length,
+    done: tasks.filter((t) => t.status === 'done').length,
+    total: tasks.length,
+  } : null;
+
+  const initialData = cached || (derivedStats ? {
+    project: { _id: project._id, name: project.name },
+    stats: derivedStats,
+    memberCount: members?.length || project?.members || 1,
+    recentTasks: [...tasks].slice(0, 5),
+  } : null);
+
+  const [data, setData] = useState(initialData);
+  const [status, setStatus] = useState(initialData ? 'ready' : 'loading');
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setStatus('loading');
+    async function load(silent = false) {
+      if (!silent) setStatus('loading');
       setError(null);
       try {
         const payload = await projectsApi.dashboard(project._id);
@@ -35,18 +55,18 @@ export function ProjectDashboardTab() {
           setStatus('ready');
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !silent) {
           setError(err instanceof ApiError ? err.message : 'Could not load the dashboard.');
           setStatus('error');
         }
       }
     }
 
-    load();
+    load(Boolean(initialData));
     return () => {
       cancelled = true;
     };
-  }, [project._id]);
+  }, [project._id, Boolean(initialData)]);
 
   if (status === 'loading') {
     return (
@@ -75,8 +95,8 @@ export function ProjectDashboardTab() {
   const { stats, memberCount, recentTasks } = data;
 
   const cards = [
-    { label: 'To do', value: stats.todo, icon: ListTodo, tone: 'text-muted' },
-    { label: 'In progress', value: stats.in_progress, icon: Clock, tone: 'text-primary dark:text-dark-primary' },
+    { label: 'To Do', value: stats.todo, icon: ListTodo, tone: 'text-muted' },
+    { label: 'In Progress', value: stats.in_progress, icon: Clock, tone: 'text-primary dark:text-dark-primary' },
     { label: 'Done', value: stats.done, icon: CheckCircle2, tone: 'text-success' },
     { label: 'Members', value: memberCount, icon: Users, tone: 'text-foreground dark:text-dark-foreground' },
   ];
@@ -143,7 +163,7 @@ export function ProjectDashboardTab() {
         {recentTasks.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-muted dark:text-dark-muted">
             <Circle className="mx-auto mb-2 h-6 w-6" aria-hidden />
-            No tasks yet — create the first one on the board.
+            No tasks yet — create the first one in the tasks section.
           </p>
         ) : (
           <ul className="divide-y divide-border dark:divide-dark-border">

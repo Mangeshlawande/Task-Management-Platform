@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, ListChecks, Plus, Trash2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { ApiError } from '../../api/client.js';
 import { tasksApi } from '../../api/tasks.js';
 import {
   canManageContent,
   formatDate,
+  fromNow,
   priorityBadgeVariant,
   statusLabel,
 } from '../../lib/format.js';
@@ -91,6 +93,7 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
   const dirty = form && base && JSON.stringify(form) !== JSON.stringify(base);
   const subTasks = detail?.subTasks ?? [];
   const subtasksDone = subTasks.filter((s) => s.isCompleted).length;
+  const subtaskProgress = subTasks.length ? Math.round((subtasksDone / subTasks.length) * 100) : 0;
 
   /* ---------------------------------------------------------- save (edit) */
 
@@ -445,6 +448,23 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
                 )}
               </h3>
             </div>
+
+            {subTasks.length > 0 && (
+              <div className="mt-2 mb-3">
+                <div className="mb-1 flex items-center justify-between text-xs text-muted dark:text-dark-muted">
+                  <span>Completion</span>
+                  <span>{subtaskProgress}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-alt dark:bg-dark-surface-alt">
+                  <motion.div
+                    initial={false}
+                    animate={{ width: `${subtaskProgress}%` }}
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="h-full bg-gradient-to-r from-primary to-indigo-400"
+                  />
+                </div>
+              </div>
+            )}
 
             {subTasks.length === 0 ? (
               <p className="mt-2 text-sm text-muted dark:text-dark-muted">

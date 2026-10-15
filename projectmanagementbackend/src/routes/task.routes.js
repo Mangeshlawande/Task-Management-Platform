@@ -13,6 +13,12 @@ import {
   deleteSubTask,
 } from '#controllers/subtask.controllers.js';
 
+import {
+  getComments,
+  createComment,
+  deleteComment,
+} from '#controllers/comment.controllers.js';
+
 import { validate } from '#middlewares/validator.middleware.js';
 import { upload } from '#middlewares/multer.middleware.js';
 import { verifyJWT, validateProjectPermission } from '#middlewares/auth.middleware.js';
@@ -25,6 +31,9 @@ import {
   createSubTaskValidator,
   updateSubTaskValidator,
   deleteSubTaskValidator,
+  getCommentsValidator,
+  createCommentValidator,
+  deleteCommentValidator,
 } from '#validators/index.js';
 
 const router = express.Router({ mergeParams: true }); // mergeParams to get :projectId from parent
@@ -363,6 +372,47 @@ router
     validate,
     validateProjectPermission(AvailableUserRole),
     deleteSubTask,
+  );
+
+/**
+ * @openapi
+ * /projects/{projectId}/tasks/{taskId}/comments:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: List task comments
+ *     description: Any project member. Returns chronological discussion thread with populated author.
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Add task comment
+ *     description: Any project member.
+ */
+router
+  .route('/:taskId/comments')
+  .get(
+    getCommentsValidator(),
+    validate,
+    getComments,
+  )
+  .post(
+    createCommentValidator(),
+    validate,
+    createComment,
+  );
+
+/**
+ * @openapi
+ * /projects/{projectId}/tasks/{taskId}/comments/{commentId}:
+ *   delete:
+ *     tags: [Tasks]
+ *     summary: Delete comment
+ *     description: Comment author or project admin/admin.
+ */
+router
+  .route('/:taskId/comments/:commentId')
+  .delete(
+    deleteCommentValidator(),
+    validate,
+    deleteComment,
   );
 
 export default router;

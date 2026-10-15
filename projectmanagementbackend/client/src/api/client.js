@@ -13,8 +13,52 @@
  */
 import { ApiError } from './errors.js';
 import { handleMockRequest } from '../lib/mock/mock-server.js';
+import { useCacheStore } from '../stores/cacheStore.js';
 
 export { ApiError };
+
+/**
+ * Auto-invalidates cached GET queries when a mutation (POST, PUT, DELETE, PATCH) succeeds.
+ */
+function autoInvalidateCache(path) {
+  const cacheStore = useCacheStore.getState();
+
+  // Invalidate aggregated dashboard cache on any data mutations
+  cacheStore.invalidate('workspace:dashboard');
+
+  // Project-scoped mutations (e.g. /api/v1/projects/:projectId/...)
+  const projectMatch = path.match(/\/api\/v1\/projects\/([^/?#]+)/);
+  if (projectMatch) {
+    const projectId = projectMatch[1];
+    if (path.includes('/tasks')) {
+      cacheStore.invalidate(`/api/v1/projects/${projectId}/tasks`);
+      cacheStore.invalidate(`/api/v1/projects/${projectId}/dashboard`);
+    } else if (path.includes('/notes')) {
+      cacheStore.invalidate(`/api/v1/projects/${projectId}/notes`);
+    } else if (path.includes('/comments')) {
+      cacheStore.invalidate(`/api/v1/projects/${projectId}/comments`);
+    } else if (path.includes('/members')) {
+      cacheStore.invalidate(`/api/v1/projects/${projectId}/members`);
+      cacheStore.invalidate(`/api/v1/projects/${projectId}/dashboard`);
+      cacheStore.invalidate('/api/v1/projects');
+    } else {
+      // Direct project mutation (update/delete)
+      cacheStore.invalidate(`/api/v1/projects/${projectId}`);
+      cacheStore.invalidate('/api/v1/projects');
+    }
+    return;
+  }
+
+  // Top-level projects mutations (e.g. POST /api/v1/projects)
+  if (path.includes('/api/v1/projects')) {
+    cacheStore.invalidate('/api/v1/projects');
+  }
+
+  // Auth mutations
+  if (path.includes('/api/v1/auth/')) {
+    cacheStore.invalidate('/api/v1/auth/me');
+  }
+}
 
 const useMockApi =
   typeof import.meta !== 'undefined' &&
@@ -85,9 +129,25 @@ async function mockRequest(path, { method, body, formData, retry = true }) {
   }
 }
 
-async function request(path, { method = 'GET', body, formData, retry = true } = {}) {
+async function request(path, { method = 'GET', body, formData, retry = true, bypassCache = false, ttl } = {}) {
+  const isGet = method.toUpperCase() === 'GET';
+
+  // 1. Check Zustand cache for identical GET queries (0ms memory return)
+  if (isGet && !bypassCache) {
+    const cachedData = useCacheStore.getState().get(path);
+    if (cachedData !== null && cachedData !== undefined) {
+      return cachedData;
+    }
+  }
+
   if (useMockApi) {
-    return mockRequest(path, { method, body, formData, retry });
+    const data = await mockRequest(path, { method, body, formData, retry });
+    if (isGet) {
+      useCacheStore.getState().set(path, data, ttl);
+    } else {
+      autoInvalidateCache(path);
+    }
+    return data;
   }
 
   let res;
@@ -118,7 +178,7 @@ async function request(path, { method = 'GET', body, formData, retry = true } = 
   if (res.status === 401 && isExpiredSession && !isAuthEndpoint && retry) {
     try {
       await refreshSession();
-      return request(path, { method, body, formData, retry: false });
+      return request(path, { method, body, formData, retry: false, bypassCache, ttl });
     } catch {
       onSessionExpired?.();
       throw new ApiError(401, 'Your session has expired. Please log in again.');
@@ -136,13 +196,24 @@ async function request(path, { method = 'GET', body, formData, retry = true } = 
     );
   }
 
-  return payload?.data;
+  const responseData = payload?.data;
+
+  // 2. Cache successful GET responses in Zustand; auto-invalidate on mutations
+  if (isGet) {
+    useCacheStore.getState().set(path, responseData, ttl);
+  } else {
+    autoInvalidateCache(path);
+  }
+
+  return responseData;
 }
 
 export const api = {
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: 'POST', body }),
-  postForm: (path, formData) => request(path, { method: 'POST', formData }),
-  put: (path, body) => request(path, { method: 'PUT', body }),
-  delete: (path) => request(path, { method: 'DELETE' }),
+  get: (path, options = {}) => request(path, { method: 'GET', ...options }),
+  post: (path, body, options = {}) => request(path, { method: 'POST', body, ...options }),
+  postForm: (path, formData, options = {}) => request(path, { method: 'POST', formData, ...options }),
+  put: (path, body, options = {}) => request(path, { method: 'PUT', body, ...options }),
+  delete: (path, options = {}) => request(path, { method: 'DELETE', ...options }),
+  invalidate: (pattern) => useCacheStore.getState().invalidate(pattern),
+  clearCache: () => useCacheStore.getState().clear(),
 };

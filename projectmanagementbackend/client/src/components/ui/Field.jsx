@@ -15,7 +15,7 @@ export function Field({ label, htmlFor, error, hint, children }) {
         </label>
       )}
       {children}
-      {hint && !first && <p className="mt-1 text-xs text-muted dark:text-dark-muted">{hint}</p>}
+      {hint && !first && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
       {first && (
         <p className="mt-1 flex items-center gap-1 text-xs text-danger" role="alert">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />

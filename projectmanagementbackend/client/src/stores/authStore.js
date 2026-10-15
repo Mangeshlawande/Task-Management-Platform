@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { authApi } from '../api/auth.js';
 import { setSessionExpiredHandler } from '../api/client.js';
+import { useCacheStore } from './cacheStore.js';
 
 /**
  * Session state. Server data (user) lives here because guards and layout
@@ -15,8 +16,8 @@ export const useAuthStore = create((set, get) => ({
 
   /** Called once by <RequireAuth> on mount; hydrates the session via GET /me. */
   async bootstrap() {
-    const { status } = get();
-    if (status === 'loading' || status === 'authenticated') return;
+    const { status, user } = get();
+    if (status === 'loading' || (status === 'authenticated' && user)) return;
 
     set({ status: 'loading' });
     try {
@@ -28,6 +29,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   async login(credentials) {
+    useCacheStore.getState().clear();
     // Contract: data = { user, accessToken, refreshToken } — keep the user.
     const data = await authApi.login(credentials);
     const user = data?.user ?? data;
@@ -37,6 +39,7 @@ export const useAuthStore = create((set, get) => ({
 
   /** Register does NOT log the user in (contract returns the user only). */
   setUser(user) {
+    useCacheStore.getState().clear();
     set({ user, status: user ? 'authenticated' : 'unauthenticated' });
   },
 
@@ -44,11 +47,13 @@ export const useAuthStore = create((set, get) => ({
     try {
       await authApi.logout();
     } finally {
+      useCacheStore.getState().clear();
       set({ ...initial, status: 'unauthenticated' });
     }
   },
 
   clearSession() {
+    useCacheStore.getState().clear();
     set({ ...initial, status: 'unauthenticated' });
   },
 }));

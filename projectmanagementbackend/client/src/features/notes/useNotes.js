@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client.js';
 import { notesApi } from '../../api/notes.js';
+import { useCacheStore } from '../../stores/cacheStore.js';
 
 const PAGE_SIZE = 12;
 
@@ -21,24 +22,30 @@ const pinnedFirst = (notes) =>
  * Owns the notes page for one project (docs/05 P4).
  * status: loading | ready | error.
  *
+ * Uses memory cache for instant 0ms renders.
  * Pinning is optimistic (4.3): the badge flips immediately and rolls back if
  * the API rejects (403 when a member pins someone else's note, 404 if it was
  * deleted meanwhile). The caller turns the rejection into a toast.
  */
 export function useNotes(projectId) {
-  const [notes, setNotes] = useState([]);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    limit: PAGE_SIZE,
-    totalPages: 1,
-  });
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('loading');
+  const cacheKey = `/api/v1/projects/${projectId}/notes?page=${page}&limit=${PAGE_SIZE}`;
+  const cached = useCacheStore.getState().get(cacheKey);
+
+  const [notes, setNotes] = useState(cached?.notes || []);
+  const [pagination, setPagination] = useState(
+    cached?.pagination || {
+      total: 0,
+      page: 1,
+      limit: PAGE_SIZE,
+      totalPages: 1,
+    },
+  );
+  const [status, setStatus] = useState(cached ? 'ready' : 'loading');
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setStatus('loading');
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setStatus('loading');
     setError(null);
     try {
       const payload = await notesApi.list(projectId, {
@@ -49,16 +56,24 @@ export function useNotes(projectId) {
       setPagination(payload.pagination);
       setStatus('ready');
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Could not load notes.',
-      );
-      setStatus('error');
+      if (!silent) {
+        setError(
+          err instanceof ApiError ? err.message : 'Could not load notes.',
+        );
+        setStatus('error');
+      }
     }
   }, [projectId, page]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const currentCached = useCacheStore.getState().get(cacheKey);
+    if (currentCached) {
+      setNotes(currentCached.notes);
+      setPagination(currentCached.pagination);
+      setStatus('ready');
+    }
+    load(Boolean(currentCached));
+  }, [load, cacheKey]);
 
   /** POST → lands on page 1 (newest-first) without a full-page flicker. */
   const createNote = useCallback(

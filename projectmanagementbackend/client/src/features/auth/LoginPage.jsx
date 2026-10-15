@@ -1,11 +1,12 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { UserRound, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { ApiError } from '../../api/client.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useForm } from '../../lib/useForm.js';
 import { validateEmail, validatePassword } from '../../lib/validators.js';
-import { Button, Field } from '../../components/ui/index.js';
+import { Button } from '../../components/ui/index.js';
+import { AuthLayout } from '../../components/auth/AuthLayout.jsx';
 import { toast } from '../../stores/uiStore.js';
 
 const initial = { identifier: '', password: '' };
@@ -20,11 +21,6 @@ const validate = (v) => {
   return errors;
 };
 
-/**
- * P1.3 — Login. POST /auth/login sets httpOnly cookies; store keeps the user.
- * `identifier` accepts email or username (contract: either works).
- * Prefills username when arriving from successful registration.
- */
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,13 +39,12 @@ export function LoginPage() {
           password: values.password,
         });
         toast.success(`Welcome back${user?.fullName ? ', ' + user.fullName : ''}!`);
-        navigate(location.state?.from || '/projects', { replace: true });
+        navigate(location.state?.from || '/dashboard', { replace: true });
       } catch (err) {
         if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
-          // Don't reveal which part failed (docs/04 § 2)
           setFormError('Invalid credentials');
-        } else if (err instanceof ApiError && Object.keys(err.fieldErrors).length) {
-          // handled by useForm; nothing banner-worthy
+        } else if (err instanceof ApiError && Object.keys(err.fieldErrors || {}).length) {
+          // handled by useForm
         } else {
           setFormError(err?.message || 'Login failed. Please try again.');
         }
@@ -58,91 +53,100 @@ export function LoginPage() {
   );
 
   return (
-    <div className="w-full max-w-md">
-      <div className="app-card p-6 sm:p-8">
-        <h1 className="text-xl font-semibold text-foreground dark:text-dark-foreground">
-          Welcome back
-        </h1>
-        <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-          Log in to your Project Camp workspace.
-        </p>
-
-        {location.state?.reason === 'password-changed' && (
-          <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success" role="status">
-            Password changed — log in with your new password.
-          </div>
-        )}
-        {location.state?.reason === 'password-reset' && (
-          <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success" role="status">
-            Password updated — log in with your new password.
-          </div>
-        )}
-
-        {formError && (
-          <div
-            className="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
-            role="alert"
-          >
-            {formError}
-          </div>
-        )}
-
-        <form className="mt-6 space-y-4" onSubmit={form.handleSubmit} noValidate>
-          <Field label="Email or username" htmlFor="identifier" error={form.errors.identifier}>
-            <div className="relative">
-              <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input
-                id="identifier"
-                name="identifier"
-                type="text"
-                required
-                autoComplete="username"
-                className={`app-input pl-9 ${form.errors.identifier ? 'app-input-error' : ''}`}
-                placeholder="jane@example.com or jane_doe"
-                value={form.values.identifier}
-                onChange={form.handleChange}
-                aria-invalid={!!form.errors.identifier}
-              />
-            </div>
-          </Field>
-
-          <Field label="Password" htmlFor="password" error={form.errors.password}>
-            <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                autoComplete="current-password"
-                className={`app-input pl-9 pr-10 ${form.errors.password ? 'app-input-error' : ''}`}
-                placeholder="••••••••"
-                value={form.values.password}
-                onChange={form.handleChange}
-                aria-invalid={!!form.errors.password}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-foreground dark:text-dark-muted dark:hover:text-dark-foreground"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
-              </button>
-            </div>
-          </Field>
-
-          <Button type="submit" size="lg" className="w-full" loading={form.submitting}>
-            {form.submitting ? 'Logging in…' : 'Log in'}
-          </Button>
-        </form>
-
-        <div className="mt-6 flex items-center justify-end text-sm">
-          <Link to="/register" className="font-medium text-primary hover:underline">
-            Create an account
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Sign in to your WorkPulse workspace."
+      footer={
+        <>
+          Don&rsquo;t have an account?{' '}
+          <Link to="/register" className="font-medium text-foreground hover:underline">
+            Create one
           </Link>
+        </>
+      }
+    >
+      {location.state?.reason === 'password-changed' && (
+        <div className="mb-4 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success" role="status">
+          Password changed — log in with your new password.
         </div>
-      </div>
-    </div>
+      )}
+      {location.state?.reason === 'password-reset' && (
+        <div className="mb-4 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success" role="status">
+          Password updated — log in with your new password.
+        </div>
+      )}
+
+      {formError && (
+        <div
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          role="alert"
+        >
+          {formError}
+        </div>
+      )}
+
+      <form onSubmit={form.handleSubmit} className="space-y-4" noValidate>
+        <div className="space-y-1.5">
+          <label htmlFor="identifier" className="block text-sm font-medium text-foreground">
+            Email or username
+          </label>
+          <input
+            id="identifier"
+            name="identifier"
+            type="text"
+            required
+            autoComplete="username"
+            placeholder="name@example.com or username"
+            className={`app-input ${form.errors.identifier ? 'app-input-error' : ''}`}
+            value={form.values.identifier}
+            onChange={form.handleChange}
+            onBlur={form.handleBlur}
+          />
+          {form.errors.identifier && (
+            <p className="text-xs text-destructive">{form.errors.identifier}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground">
+              Password
+            </label>
+          </div>
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              autoComplete="current-password"
+              className={`app-input pr-10 ${form.errors.password ? 'app-input-error' : ''}`}
+              value={form.values.password}
+              onChange={form.handleChange}
+              onBlur={form.handleBlur}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {form.errors.password && (
+            <p className="text-xs text-destructive">{form.errors.password}</p>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full justify-center shadow-sm"
+          loading={form.submitting}
+        >
+          Sign in
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

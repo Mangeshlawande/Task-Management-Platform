@@ -8,8 +8,16 @@ import { asyncHandler } from '#utils/asyncHandler.js';
 import { UserRoleEnum } from '#utils/constants.js';
 
 /* =========================================================
-   VERIFY JWT
+   VERIFY JWT (WITH USER CACHE TO AVOID REDUNDANT DB CALLS)
 ========================================================= */
+
+const userAuthCache = new Map();
+const USER_CACHE_TTL = 60 * 1000; // 60 seconds
+
+export const invalidateUserAuthCache = (userId) => {
+  if (userId) userAuthCache.delete(String(userId));
+  else userAuthCache.clear();
+};
 
 export const verifyJWT = asyncHandler(async (req, res, next) => {
   const authHeader = req.header('Authorization');
@@ -32,12 +40,21 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
       process.env.ACCESS_TOKEN_SECRET
     );
 
-    const user = await User.findById(decodedToken?._id).select(
-      '-password -refreshToken'
-    );
+    const userId = decodedToken?._id;
+    const now = Date.now();
+    const cached = userAuthCache.get(String(userId));
 
-    if (!user) {
-      throw new ApiError(401, 'Invalid access token', ['INVALID_TOKEN']);
+    let user;
+    if (cached && cached.expiresAt > now) {
+      user = cached.user;
+    } else {
+      user = await User.findById(userId).select('-password -refreshToken');
+
+      if (!user) {
+        throw new ApiError(401, 'Invalid access token', ['INVALID_TOKEN']);
+      }
+
+      userAuthCache.set(String(userId), { user, expiresAt: now + USER_CACHE_TTL });
     }
 
     req.user = user;

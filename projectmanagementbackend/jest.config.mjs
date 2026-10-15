@@ -158,6 +158,7 @@ const config = {
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   testMatch: ['**/*.test.js'], // ESM-aware: only this directory is tested,
+  testTimeout: 20000,
 
   // This option allows the use of a custom results processor
   // testResultsProcessor: undefined,

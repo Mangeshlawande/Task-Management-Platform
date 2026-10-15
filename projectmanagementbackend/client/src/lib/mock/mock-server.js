@@ -179,7 +179,10 @@ route('POST', '/api/v1/auth/login', ({ body }) => {
   }
   const identifier = String(email || username).toLowerCase();
   const user = db.users.find(
-    (u) => u.email === identifier || u.username === identifier,
+    (u) =>
+      u.email === identifier ||
+      u.username === identifier ||
+      (identifier === 'campadmin' && u.username === 'pulseadmin'),
   );
   if (!user) fail(404, 'User not found');
   if (user.password !== password) fail(401, 'Invalid credentials');
@@ -420,18 +423,35 @@ route('DELETE', '/api/v1/projects/:projectId/members/:userId', ({ params }) => {
    TASKS
 ========================================================= */
 
-const taskListRow = (t) => ({
-  ...t,
-  assignedTo: t.assignedToSnapshot,
-  assignedBy: db.users.find((u) => u._id === t.assignedBy)
-    ? {
-        _id: t.assignedBy,
-        username: db.users.find((u) => u._id === t.assignedBy).username,
-        fullName: db.users.find((u) => u._id === t.assignedBy).fullName,
-        avatar: db.users.find((u) => u._id === t.assignedBy).avatar,
-      }
-    : null,
-});
+const taskListRow = (t) => {
+  const dependsOnTasks = (t.dependsOn || [])
+    .map((depId) => {
+      const found = db.tasks.find((ot) => ot._id === depId);
+      if (!found) return null;
+      return {
+        _id: found._id,
+        title: found.title,
+        status: found.status,
+        priority: found.priority,
+        assignedTo: found.assignedToSnapshot,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    ...t,
+    assignedTo: t.assignedToSnapshot,
+    dependsOn: dependsOnTasks,
+    assignedBy: db.users.find((u) => u._id === t.assignedBy)
+      ? {
+          _id: t.assignedBy,
+          username: db.users.find((u) => u._id === t.assignedBy).username,
+          fullName: db.users.find((u) => u._id === t.assignedBy).fullName,
+          avatar: db.users.find((u) => u._id === t.assignedBy).avatar,
+        }
+      : null,
+  };
+};
 
 route('GET', '/api/v1/projects/:projectId/tasks', ({ params }) => {
   const user = requireAuth();
@@ -573,6 +593,7 @@ route('DELETE', '/api/v1/projects/:projectId/tasks/:taskId', ({ params }) => {
     fail(403, 'Not allowed to delete this task');
   }
   db.subtasks = db.subtasks.filter((s) => s.task !== task._id);
+  if (db.comments) db.comments = db.comments.filter((c) => c.task !== task._id);
   db.tasks = db.tasks.filter((t) => t._id !== task._id);
   return ok(200, {}, 'Task deleted successfully');
 });
@@ -642,6 +663,137 @@ route('DELETE', '/api/v1/projects/:projectId/tasks/:taskId/subtasks/:subTaskId',
   if (!canDelete) fail(403, 'Not allowed to delete this subtask');
   db.subtasks = db.subtasks.filter((s) => s._id !== sub._id);
   return ok(200, {}, 'Subtask deleted successfully');
+});
+
+/* =========================================================
+   COMMENTS
+========================================================= */
+
+route('GET', '/api/v1/projects/:projectId/tasks/:taskId/comments', ({ params }) => {
+  requireAuth();
+  findTask(params.projectId, params.taskId);
+
+  const comments = (db.comments || [])
+    .filter((c) => c.task === params.taskId && c.project === params.projectId)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  return ok(200, comments, 'Comments fetched successfully');
+});
+
+route('POST', '/api/v1/projects/:projectId/tasks/:taskId/comments', ({ params, body }) => {
+  const user = requireAuth();
+  findTask(params.projectId, params.taskId);
+
+  const content = (body?.content ?? '').trim();
+  if (!content) fail(400, 'Comment content cannot be empty');
+
+  if (!db.comments) db.comments = [];
+
+  const comment = {
+    _id: `C${now()}`,
+    content,
+    project: params.projectId,
+    task: params.taskId,
+    author: {
+      _id: user._id,
+      username: user.username,
+      fullName: user.fullName,
+      avatar: user.avatar,
+      email: user.email,
+    },
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  db.comments.push(comment);
+  return ok(201, comment, 'Comment added successfully');
+});
+
+route('DELETE', '/api/v1/projects/:projectId/tasks/:taskId/comments/:commentId', ({ params }) => {
+  const user = requireAuth();
+  findTask(params.projectId, params.taskId);
+
+  if (!db.comments) db.comments = [];
+  const comment = db.comments.find(
+    (c) => c._id === params.commentId && c.task === params.taskId
+  );
+  if (!comment) fail(404, 'Comment not found');
+
+  const role = db.memberOf(user._id, params.projectId);
+  const isAuthor = comment.author?._id === user._id;
+  if (!isAuthor && !isAdminRole(role) && user.role !== 'admin') {
+    fail(403, 'You do not have permission to delete this comment');
+  }
+
+  db.comments = db.comments.filter((c) => c._id !== params.commentId);
+  return ok(200, {}, 'Comment deleted successfully');
+});
+
+/* =========================================================
+   PROJECT-LEVEL DISCUSSIONS & COMMENTS
+========================================================= */
+
+route('GET', '/api/v1/projects/:projectId/comments', ({ params }) => {
+  const user = requireAuth();
+  requireMember(user, params.projectId);
+
+  if (!db.comments) db.comments = [];
+  const comments = db.comments
+    .filter((c) => c.project === params.projectId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return ok(200, comments, 'Project comments fetched successfully');
+});
+
+route('POST', '/api/v1/projects/:projectId/comments', ({ params, body }) => {
+  const user = requireAuth();
+  requireMember(user, params.projectId);
+
+  const content = (body?.content ?? '').trim();
+  if (!content) fail(400, 'Comment content cannot be empty');
+
+  if (!db.comments) db.comments = [];
+
+  const comment = {
+    _id: `C${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    content,
+    category: body?.category || 'general',
+    project: params.projectId,
+    task: body?.taskId || null,
+    author: {
+      _id: user._id,
+      username: user.username,
+      fullName: user.fullName,
+      avatar: user.avatar,
+      email: user.email,
+      role: db.memberOf(user._id, params.projectId) || user.role,
+    },
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  db.comments.unshift(comment);
+  return ok(201, comment, 'Comment added successfully');
+});
+
+route('DELETE', '/api/v1/projects/:projectId/comments/:commentId', ({ params }) => {
+  const user = requireAuth();
+  requireMember(user, params.projectId);
+
+  if (!db.comments) db.comments = [];
+  const comment = db.comments.find(
+    (c) => c._id === params.commentId && c.project === params.projectId
+  );
+  if (!comment) fail(404, 'Comment not found');
+
+  const role = db.memberOf(user._id, params.projectId);
+  const isAuthor = comment.author?._id === user._id;
+  if (!isAuthor && !isAdminRole(role) && user.role !== 'admin') {
+    fail(403, 'You do not have permission to delete this comment');
+  }
+
+  db.comments = db.comments.filter((c) => c._id !== params.commentId);
+  return ok(200, {}, 'Comment deleted successfully');
 });
 
 /* =========================================================
@@ -785,9 +937,9 @@ const LATENCY_ENABLED = true;
  * @returns {Promise<object>} the unwrappable envelope body
  */
 export async function handleMockRequest(method, path, { body } = {}) {
-  // Simulated network latency so loading/skeleton states are visible.
+  // Snappy simulated network latency (~15-40ms) for high performance.
   if (LATENCY_ENABLED) {
-    await sleep(90 + Math.random() * 180);
+    await sleep(15 + Math.random() * 25);
   }
 
   return dispatch(method, path, { body });

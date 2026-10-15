@@ -1,4 +1,4 @@
-# Project Camp — Backend
+# WorkPulse — Backend API
 
 REST API for a collaborative project management system (projects, tasks, subtasks, notes, members, dashboards) built with **Express 5 + MongoDB (Mongoose 9)**.
 

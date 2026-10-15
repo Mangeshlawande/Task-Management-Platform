@@ -25,6 +25,7 @@ import { useAuthStore } from '../../stores/authStore.js';
 import { consumePendingCreate, toast, useUiStore } from '../../stores/uiStore.js';
 import { useNotes } from './useNotes.js';
 import { NoteEditorModal } from './NoteEditorModal.jsx';
+import { renderMarkdown } from './renderMarkdown.js';
 
 /**
  * P4 — Notes tab (docs/05 P4).
@@ -263,9 +264,10 @@ export function NotesPage() {
                 )}
               </div>
 
-              <p className="mt-3 flex-1 whitespace-pre-wrap break-words text-sm text-foreground dark:text-dark-foreground">
-                {note.content}
-              </p>
+              <div
+                className="mt-3 flex-1 whitespace-pre-wrap break-words text-sm text-foreground dark:text-dark-foreground"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(note.content) }}
+              />
 
               <div className="mt-4 flex items-center gap-2 border-t border-border pt-3 dark:border-dark-border">
                 <Avatar user={author} size="sm" />
