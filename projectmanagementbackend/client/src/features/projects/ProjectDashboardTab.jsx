@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Circle, Clock, ListTodo, Users } from 'lucide-react';
 import { projectsApi } from '../../api/projects.js';
@@ -7,8 +7,10 @@ import { Avatar, Badge, Skeleton } from '../../components/ui/index.js';
 import { fromNow, statusBadgeVariant, statusLabel } from '../../lib/format.js';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
 import { StatusBreakdownChart } from './StatusBreakdownChart.jsx';
-
 import { useCacheStore } from '../../stores/cacheStore.js';
+import { ActivityFeed } from '../../components/common/ActivityFeed.jsx';
+import { buildProjectActivities } from '../../lib/activityService.js';
+import { useLiveSync } from '../../lib/useLiveSync.js';
 
 /**
  * Dashboard tab — the shell's index route.
@@ -67,6 +69,18 @@ export function ProjectDashboardTab() {
       cancelled = true;
     };
   }, [project._id, Boolean(initialData)]);
+
+  useLiveSync({
+    enabled: Boolean(project?._id),
+    intervalMs: 30000,
+    onSync: () => {
+      projectsApi.dashboard(project._id).then(setData).catch(() => {});
+    },
+  });
+
+  const activities = useMemo(() => {
+    return buildProjectActivities({ tasks: tasks || [], members: members || [], project });
+  }, [tasks, members, project]);
 
   if (status === 'loading') {
     return (
@@ -147,44 +161,54 @@ export function ProjectDashboardTab() {
         </div>
       </div>
 
-      <div className="app-card">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-dark-border">
-          <h2 className="text-sm font-semibold text-foreground dark:text-dark-foreground">
-            Recent tasks
-          </h2>
-          <Link
-            to="board"
-            className="text-xs text-muted transition hover:text-foreground dark:text-dark-muted dark:hover:text-dark-foreground"
-          >
-            Open board →
-          </Link>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Recent Tasks */}
+        <div className="app-card">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-dark-border">
+            <h2 className="text-sm font-semibold text-foreground dark:text-dark-foreground">
+              Recent tasks
+            </h2>
+            <Link
+              to="board"
+              className="text-xs text-muted transition hover:text-foreground dark:text-dark-muted dark:hover:text-dark-foreground"
+            >
+              Open board →
+            </Link>
+          </div>
+
+          {recentTasks.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-muted dark:text-dark-muted">
+              <Circle className="mx-auto mb-2 h-6 w-6" aria-hidden />
+              No tasks yet — create the first one in the tasks section.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border dark:divide-dark-border">
+              {recentTasks.map((task) => (
+                <li key={task._id} className="flex items-center gap-3 px-5 py-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground dark:text-dark-foreground">
+                      {task.title}
+                    </span>
+                    <span className="text-xs text-muted dark:text-dark-muted">
+                      Updated {fromNow(task.updatedAt)}
+                    </span>
+                  </span>
+                  {task.assignedTo && <Avatar user={task.assignedTo} size="sm" />}
+                  <Badge variant={statusBadgeVariant(task.status)}>
+                    {statusLabel(task.status)}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {recentTasks.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-muted dark:text-dark-muted">
-            <Circle className="mx-auto mb-2 h-6 w-6" aria-hidden />
-            No tasks yet — create the first one in the tasks section.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border dark:divide-dark-border">
-            {recentTasks.map((task) => (
-              <li key={task._id} className="flex items-center gap-3 px-5 py-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground dark:text-dark-foreground">
-                    {task.title}
-                  </span>
-                  <span className="text-xs text-muted dark:text-dark-muted">
-                    Updated {fromNow(task.updatedAt)}
-                  </span>
-                </span>
-                {task.assignedTo && <Avatar user={task.assignedTo} size="sm" />}
-                <Badge variant={statusBadgeVariant(task.status)}>
-                  {statusLabel(task.status)}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Project Activity Feed */}
+        <ActivityFeed
+          activities={activities}
+          title="Project Activity"
+          emptyMessage="No activity in this project yet."
+        />
       </div>
     </div>
   );

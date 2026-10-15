@@ -14,6 +14,7 @@ import { toast } from '../../stores/uiStore.js';
 import { fromNow, roleLabel, roleBadgeVariant } from '../../lib/format.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { MemberPipelineModal } from './MemberPipelineModal.jsx';
+import { useLiveSync } from '../../lib/useLiveSync.js';
 
 export function MembersPage() {
   const currentUser = useAuthStore((s) => s.user);
@@ -119,6 +120,12 @@ export function MembersPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useLiveSync({
+    enabled: true,
+    intervalMs: 30000,
+    onSync: () => loadData(),
+  });
 
   // Flatten and filter members
   const memberList = useMemo(() => {
@@ -302,7 +309,21 @@ export function MembersPage() {
                   ? 'project_admin'
                   : 'member';
 
-                const userTaskCount = tasksCountByUserId.get(String(u._id)) || 0;
+                const uTasks = allTasks.filter(
+                  (t) => String(t.assignedTo?._id || t.assignedTo || '') === String(u._id)
+                );
+                const userTaskCount = uTasks.length;
+                const activeCount = uTasks.filter((t) => t.status !== 'done').length;
+                const doneCount = uTasks.filter((t) => t.status === 'done').length;
+                const completionRate = userTaskCount ? Math.round((doneCount / userTaskCount) * 100) : 0;
+
+                const workload = activeCount === 0
+                  ? { label: 'Available', variant: 'neutral' }
+                  : activeCount <= 3
+                  ? { label: `${activeCount} active`, variant: 'success' }
+                  : activeCount <= 5
+                  ? { label: `${activeCount} heavy`, variant: 'warning' }
+                  : { label: `${activeCount} overload`, variant: 'danger' };
 
                 return (
                   <tr
@@ -384,22 +405,40 @@ export function MembersPage() {
 
                     {/* Pipeline & Tasks */}
                     <td className="px-6 py-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedMemberForPipeline(entry);
-                          setPipelineModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 text-xs h-7.5 px-2.5 transition hover:border-primary hover:text-primary shadow-2xs"
-                        title={`View ${u.fullName || u.username}'s tasks and pipeline dependencies`}
-                      >
-                        <GitBranch className="h-3.5 w-3.5 text-primary" />
-                        <span>Pipeline</span>
-                        <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-bold text-primary">
-                          {userTaskCount}
-                        </span>
-                      </Button>
+                      <div className="flex flex-col gap-1.5 min-w-[140px]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMemberForPipeline(entry);
+                              setPipelineModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 text-xs h-7.5 px-2.5 transition hover:border-primary hover:text-primary shadow-2xs"
+                            title={`View ${u.fullName || u.username}'s tasks and pipeline dependencies`}
+                          >
+                            <GitBranch className="h-3.5 w-3.5 text-primary" />
+                            <span>Pipeline</span>
+                            <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-bold text-primary">
+                              {userTaskCount}
+                            </span>
+                          </Button>
+                          <Badge variant={workload.variant} size="sm" className="text-[10px]">
+                            {workload.label}
+                          </Badge>
+                        </div>
+                        {userTaskCount > 0 && (
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-border/60">
+                              <div
+                                className="h-full bg-success transition-all"
+                                style={{ width: `${completionRate}%` }}
+                              />
+                            </div>
+                            <span>{doneCount}/{userTaskCount}</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Joined date */}

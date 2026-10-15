@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -29,6 +29,9 @@ import { useCacheStore } from '../../stores/cacheStore.js';
 import { PageHeader } from '../../components/common/PageHeader.jsx';
 import { Avatar, Badge, Button, Skeleton } from '../../components/ui/index.js';
 import { formatDate, fromNow, getDueDateStatus, statusLabel } from '../../lib/format.js';
+import { ActivityFeed } from '../../components/common/ActivityFeed.jsx';
+import { buildProjectActivities } from '../../lib/activityService.js';
+import { useLiveSync } from '../../lib/useLiveSync.js';
 
 function WeeklyThroughputChart({ data }) {
   return (
@@ -311,6 +314,10 @@ export function DashboardPage() {
   );
   const recentTasks = sortedTasks.slice(0, 6);
 
+  const activities = useMemo(() => {
+    return buildProjectActivities({ tasks });
+  }, [tasks]);
+
   if (loading) {
     return (
       <div className="space-y-6" aria-busy="true">
@@ -473,30 +480,11 @@ export function DashboardPage() {
         </div>
 
         {/* Workspace Activity Feed */}
-        <div className="rounded-xl border border-border bg-card shadow-sm">
-          <div className="border-b border-border px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">Activity</h3>
-          </div>
-          <ul className="space-y-4 px-5 py-4">
-            {[
-              { who: 'Jordan', what: 'moved', item: 'Pricing page', to: 'In Progress', when: '12m ago' },
-              { who: 'Sam', what: 'completed', item: 'Domain setup', to: 'Done', when: '45m ago' },
-              { who: 'Alex', what: 'created', item: 'Q3 Growth Experiments', when: '2h ago' },
-              { who: 'Riley', what: 'commented on', item: 'Onboarding wireframes', when: '4h ago' },
-            ].map((a, i) => (
-              <li key={i} className="flex gap-3 text-sm">
-                <Avatar user={{ username: a.who, fullName: a.who }} size="sm" />
-                <div className="flex-1 text-muted-foreground text-xs leading-relaxed">
-                  <span className="font-semibold text-foreground">{a.who}</span>{' '}
-                  {a.what}{' '}
-                  <span className="font-medium text-foreground">{a.item}</span>
-                  {a.to ? ` to ${a.to}` : ''}
-                  <div className="mt-0.5 text-[11px] text-muted-foreground/75">{a.when}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ActivityFeed
+          activities={activities}
+          title="Workspace Activity"
+          emptyMessage="No workspace activity yet."
+        />
       </div>
     </div>
   );

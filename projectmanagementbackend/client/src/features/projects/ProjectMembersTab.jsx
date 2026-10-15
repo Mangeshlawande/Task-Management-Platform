@@ -107,10 +107,19 @@ export function ProjectMembersTab() {
             const canTouch = isOwner && !isSelf;
             const busy = busyUserId === user._id;
 
-            const memberTaskCount = (tasks || []).filter((t) => {
+            const memberTasks = (tasks || []).filter((t) => {
               const aid = String(t.assignedTo?._id || t.assignedTo || '');
               return aid === String(user._id);
-            }).length;
+            });
+            const memberTaskCount = memberTasks.length;
+            const activeCount = memberTasks.filter((t) => t.status !== 'done').length;
+            const workload = activeCount === 0
+              ? { label: 'Available', variant: 'neutral' }
+              : activeCount <= 3
+              ? { label: `${activeCount} active`, variant: 'success' }
+              : activeCount <= 5
+              ? { label: `${activeCount} heavy`, variant: 'warning' }
+              : { label: `${activeCount} overload`, variant: 'danger' };
 
             return (
               <li
@@ -158,6 +167,10 @@ export function ProjectMembersTab() {
                     {memberTaskCount}
                   </span>
                 </Button>
+
+                <Badge variant={workload.variant} size="sm" className="hidden sm:inline-flex text-[10px]">
+                  {workload.label}
+                </Badge>
 
                 {canTouch ? (
                   <select

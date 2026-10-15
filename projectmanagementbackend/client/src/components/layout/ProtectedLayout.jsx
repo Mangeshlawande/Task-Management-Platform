@@ -8,6 +8,9 @@ import { Avatar, Button, Logo, ThemeToggle } from '../ui/index.js';
 import { Sidebar } from './Sidebar.jsx';
 import { CommandPalette } from './CommandPalette.jsx';
 import { ConnectionBanner } from './ConnectionBanner.jsx';
+import { NotificationCenter } from './NotificationCenter.jsx';
+import { syncUserNotifications } from '../../lib/syncNotifications.js';
+import { useLiveSync } from '../../lib/useLiveSync.js';
 
 /** App shell for authenticated pages with responsive sidebar and topbar navigation. */
 export function ProtectedLayout() {
@@ -35,6 +38,21 @@ export function ProtectedLayout() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [togglePalette]);
+
+  // Initial and live background notification synchronization
+  useEffect(() => {
+    if (user) {
+      syncUserNotifications(user);
+    }
+  }, [user]);
+
+  useLiveSync({
+    enabled: Boolean(user),
+    intervalMs: 30000,
+    onSync: () => {
+      if (user) syncUserNotifications(user);
+    },
+  });
 
   const handleLogout = async () => {
     setBusy(true);
@@ -177,6 +195,7 @@ export function ProtectedLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <NotificationCenter />
             <ThemeToggle />
 
             {user && (
