@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
+  Calendar,
+  Clock,
   Inbox,
   KanbanSquare,
   List as ListIcon,
@@ -29,6 +32,7 @@ import {
 import {
   canManageContent,
   formatDate,
+  getDueDateStatus,
   priorityBadgeVariant,
   statusLabel,
 } from '../../lib/format.js';
@@ -45,6 +49,8 @@ const COLUMNS = [
 ];
 
 function TaskCardInner({ task, editable, overdue, onOpen, onMove, isOverlay = false }) {
+  const dueStatus = getDueDateStatus(task.dueDate, task.status);
+
   return (
     <>
       <button
@@ -61,17 +67,29 @@ function TaskCardInner({ task, editable, overdue, onOpen, onMove, isOverlay = fa
         <Badge variant={priorityBadgeVariant(task.priority)}>
           {task.priority}
         </Badge>
-        {task.dueDate && (
-          <span
-            className={`inline-flex items-center gap-1 text-[11px] ${
-              overdue
-                ? 'text-danger'
-                : 'text-muted dark:text-dark-muted'
-            }`}
-          >
-            {formatDate(task.dueDate)}
-            {overdue && ' · overdue'}
-          </span>
+        {dueStatus && (
+          dueStatus.isOverdue ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+              title={`Overdue: deadline was ${formatDate(task.dueDate)}`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {dueStatus.label}
+            </span>
+          ) : dueStatus.isDueToday ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+              title="Due today"
+            >
+              <Clock className="h-3 w-3" />
+              Due today
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted dark:text-dark-muted">
+              <Calendar className="h-3 w-3" />
+              {dueStatus.label}
+            </span>
+          )
         )}
         {task.attachments?.length > 0 && (
           <span
@@ -503,8 +521,35 @@ export function BoardPage() {
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">
-                    {t.dueDate ? formatDate(t.dueDate) : '—'}
+                  <td className="px-5 py-3 text-xs">
+                    {t.dueDate ? (() => {
+                      const dueStatus = getDueDateStatus(t.dueDate, t.status);
+                      if (!dueStatus) return '—';
+                      if (dueStatus.isOverdue) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            <AlertTriangle className="h-3 w-3" />
+                            {dueStatus.label}
+                          </span>
+                        );
+                      }
+                      if (dueStatus.isDueToday) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <Clock className="h-3 w-3" />
+                            Due today
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(t.dueDate)}
+                        </span>
+                      );
+                    })() : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

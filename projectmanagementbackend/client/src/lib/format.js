@@ -73,3 +73,27 @@ export const statusBadgeVariant = (status) =>
 /** Task status → display label. */
 export const statusLabel = (status) =>
   ({ todo: 'To Do', in_progress: 'In Progress', done: 'Done' }[status] ?? status);
+
+/**
+ * Evaluates due date relative to today (normalized to day boundary).
+ * Returns null if no due date; returns { isOverdue, isDueToday, label }.
+ */
+export const getDueDateStatus = (dueDate, status) => {
+  if (!dueDate) return null;
+  if (status === 'done') {
+    return { isOverdue: false, isDueToday: false, label: formatDate(dueDate) };
+  }
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+  if (dueDay < today) {
+    return { isOverdue: true, isDueToday: false, label: `${formatDate(dueDate)} (Overdue)` };
+  }
+  if (dueDay.getTime() === today.getTime()) {
+    return { isOverdue: false, isDueToday: true, label: 'Due today' };
+  }
+  return { isOverdue: false, isDueToday: false, label: formatDate(dueDate) };
+};

@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   AtSign,
+  Eye,
   HelpCircle,
   Lightbulb,
   Megaphone,
@@ -28,6 +29,7 @@ import { fromNow, roleBadgeVariant, roleLabel } from '../../lib/format.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useCacheStore } from '../../stores/cacheStore.js';
 import { toast } from '../../stores/uiStore.js';
+import { renderMarkdown } from '../notes/renderMarkdown.js';
 
 const CATEGORIES = [
   {
@@ -76,48 +78,15 @@ const categoryMeta = (cat) =>
   CATEGORIES.find((c) => c.id === cat) || CATEGORIES[0];
 
 /**
- * Format markdown-like text with highlighted @mentions and code spans.
+ * Render rich sanitized Markdown with headers, code blocks, lists, quotes, links, and @mentions.
  */
 function FormattedContent({ text }) {
   if (!text) return null;
-  // Parse paragraphs and inline @mentions
-  const paragraphs = text.split(/\n\s*\n/);
-
   return (
-    <div className="space-y-2 text-sm text-foreground/90 dark:text-dark-foreground/90 leading-relaxed break-words">
-      {paragraphs.map((p, pIdx) => {
-        // Tokenize line for @mentions and `code`
-        const parts = p.split(/(@[a-zA-Z0-9_-]+|`[^`]+`)/g);
-
-        return (
-          <p key={pIdx}>
-            {parts.map((part, idx) => {
-              if (part.startsWith('@')) {
-                return (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center font-semibold text-primary dark:text-primary-light hover:underline cursor-pointer"
-                  >
-                    {part}
-                  </span>
-                );
-              }
-              if (part.startsWith('`') && part.endsWith('`')) {
-                return (
-                  <code
-                    key={idx}
-                    className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground dark:bg-dark-muted/60"
-                  >
-                    {part.slice(1, -1)}
-                  </code>
-                );
-              }
-              return part;
-            })}
-          </p>
-        );
-      })}
-    </div>
+    <div
+      className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 dark:text-dark-foreground/90 leading-relaxed break-words"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
+    />
   );
 }
 
@@ -137,6 +106,7 @@ export function ProjectDiscussionsTab() {
   const [category, setCategory] = useState('general');
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [composeTab, setComposeTab] = useState('write'); // 'write' | 'preview'
 
   // Filters
   const [filterCategory, setFilterCategory] = useState('all');
@@ -274,14 +244,36 @@ export function ProjectDiscussionsTab() {
       {/* Compose Viewpoint Box */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm dark:border-dark-border">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-semibold text-foreground dark:text-dark-foreground flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               Share your perspective or feedback
             </span>
-            <span className="text-xs text-muted-foreground">
-              Visible to all {members?.length || 0} team members
-            </span>
+            <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/30 p-0.5 dark:border-dark-border">
+              <button
+                type="button"
+                onClick={() => setComposeTab('write')}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                  composeTab === 'write'
+                    ? 'bg-card text-foreground shadow-xs font-semibold dark:bg-dark-card'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Write
+              </button>
+              <button
+                type="button"
+                onClick={() => setComposeTab('preview')}
+                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                  composeTab === 'preview'
+                    ? 'bg-card text-foreground shadow-xs font-semibold dark:bg-dark-card'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Eye className="h-3 w-3" />
+                Preview
+              </button>
+            </div>
           </div>
 
           {/* Perspective Category Selectors */}
@@ -308,16 +300,37 @@ export function ProjectDiscussionsTab() {
             })}
           </div>
 
-          {/* Text Area */}
-          <div className="relative">
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's your point of view? Share ideas, discuss architecture, raise questions, or highlight concerns... (Markdown and @mentions supported)"
-              rows={3}
-              className="w-full resize-y rounded-lg border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-dark-border dark:bg-dark-background dark:text-dark-foreground"
-            />
-          </div>
+          {/* Text Area or Live Markdown Preview */}
+          {composeTab === 'write' ? (
+            <div className="space-y-1.5">
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="What's your point of view? Share ideas, discuss architecture, raise questions, or highlight concerns... (Markdown and @mentions supported)"
+                rows={3}
+                className="w-full resize-y rounded-lg border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-dark-border dark:bg-dark-background dark:text-dark-foreground"
+              />
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="font-medium">Markdown hints:</span>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">**bold**</code>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">*italic*</code>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">`inline code`</code>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">&gt; quote</code>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">- bullet</code>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">[link](url)</code>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-[5.5rem] rounded-lg border border-border/70 bg-muted/20 p-3 text-sm dark:border-dark-border/70">
+              {content.trim() ? (
+                <FormattedContent text={content} />
+              ) : (
+                <p className="italic text-muted-foreground text-xs">
+                  Nothing to preview yet. Switch to the Write tab to type your perspective.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Teammate Mention Quick-Pills & Optional Task Link */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">

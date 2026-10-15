@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, ListChecks, Plus, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarDays,
+  Clock,
+  Download,
+  ExternalLink,
+  ListChecks,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ApiError } from '../../api/client.js';
 import { tasksApi } from '../../api/tasks.js';
@@ -47,6 +57,7 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const canEdit =
     canManageContent(myRole) || task.assignedBy?._id === currentUserId;
@@ -94,6 +105,21 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
   const subTasks = detail?.subTasks ?? [];
   const subtasksDone = subTasks.filter((s) => s.isCompleted).length;
   const subtaskProgress = subTasks.length ? Math.round((subtasksDone / subTasks.length) * 100) : 0;
+
+  const dueDateStatus = form?.dueDate ? (() => {
+    if (form.status === 'done') return null;
+    const due = new Date(form.dueDate);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    if (dueDay < today) {
+      return { isOverdue: true, isDueToday: false, message: `This task is overdue (was due on ${formatDate(form.dueDate)})` };
+    }
+    if (dueDay.getTime() === today.getTime()) {
+      return { isOverdue: false, isDueToday: true, message: 'This task is due today' };
+    }
+    return null;
+  })() : null;
 
   /* ---------------------------------------------------------- save (edit) */
 
@@ -287,6 +313,24 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
             </div>
           )}
 
+          {dueDateStatus && (
+            <div
+              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm ${
+                dueDateStatus.isOverdue
+                  ? 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              }`}
+              role="alert"
+            >
+              {dueDateStatus.isOverdue ? (
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+              ) : (
+                <Clock className="h-4 w-4 shrink-0" />
+              )}
+              <span className="font-medium">{dueDateStatus.message}</span>
+            </div>
+          )}
+
           {/* ---- details ---- */}
           <section className="space-y-4" aria-label="Task details">
             {canEdit ? (
@@ -408,26 +452,28 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
               </div>
             )}
 
-            {/* attachments (read-only — the API only accepts them on create) */}
+            {/* attachments */}
             {detail.attachments?.length > 0 && (
               <div>
-                <h3 className="app-label">Attachments</h3>
-                <ul className="mt-2 flex flex-wrap gap-2">
+                <h3 className="app-label">Attachments ({detail.attachments.length})</h3>
+                <ul className="mt-2 flex flex-wrap gap-2.5">
                   {detail.attachments.map((file) => (
                     <li key={file.url}>
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block h-20 w-20 overflow-hidden rounded-lg border border-border transition hover:opacity-80 dark:border-dark-border"
-                        title={file.url.split('/').pop()}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImage(file)}
+                        className="group relative block h-20 w-20 overflow-hidden rounded-lg border border-border transition hover:border-primary/50 hover:shadow-sm dark:border-dark-border"
+                        title="Click to preview image"
                       >
                         <img
                           src={file.url}
                           alt="Task attachment"
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition group-hover:scale-105"
                         />
-                      </a>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                          <ExternalLink className="h-4 w-4 text-white" />
+                        </div>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -536,6 +582,52 @@ export function TaskDetailModal({ task, onClose, onSaved, onDeleted }) {
               </form>
             )}
           </section>
+        </div>
+      )}
+
+      {/* Attachment Image Preview Lightbox */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-xl border border-border bg-card p-2 shadow-2xl dark:border-dark-border dark:bg-dark-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-4 py-2 text-sm dark:border-dark-border">
+              <span className="font-medium truncate max-w-md text-foreground dark:text-dark-foreground">
+                {previewImage.url.split('/').pop()}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={previewImage.url}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground dark:text-dark-muted dark:hover:bg-dark-muted/40 dark:hover:text-dark-foreground"
+                  title="Download image"
+                >
+                  <Download className="h-4 w-4" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground dark:text-dark-muted dark:hover:bg-dark-muted/40 dark:hover:text-dark-foreground"
+                  title="Close preview"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-center p-4 max-h-[75vh] overflow-auto">
+              <img
+                src={previewImage.url}
+                alt="Task attachment preview"
+                className="max-h-[70vh] w-auto max-w-full rounded-lg object-contain shadow-md"
+              />
+            </div>
+          </div>
         </div>
       )}
     </Modal>

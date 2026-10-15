@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Plus,
   AlertCircle,
+  Calendar,
 } from 'lucide-react';
 import { projectsApi } from '../../api/projects.js';
 import { tasksApi } from '../../api/tasks.js';
@@ -27,7 +28,7 @@ import { useAuthStore } from '../../stores/authStore.js';
 import { useCacheStore } from '../../stores/cacheStore.js';
 import { PageHeader } from '../../components/common/PageHeader.jsx';
 import { Avatar, Badge, Button, Skeleton } from '../../components/ui/index.js';
-import { fromNow, statusLabel } from '../../lib/format.js';
+import { formatDate, fromNow, getDueDateStatus, statusLabel } from '../../lib/format.js';
 
 function WeeklyThroughputChart({ data }) {
   return (
@@ -233,6 +234,21 @@ export function DashboardPage() {
   const doneTasks = tasks.filter((t) => t.status === 'done');
   const todoTasks = tasks.filter((t) => t.status === 'todo');
 
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const overdueTasks = tasks.filter((t) => {
+    if (!t.dueDate || t.status === 'done') return false;
+    const dueDay = new Date(new Date(t.dueDate).getFullYear(), new Date(t.dueDate).getMonth(), new Date(t.dueDate).getDate());
+    return dueDay < todayStart;
+  });
+
+  const dueTodayTasks = tasks.filter((t) => {
+    if (!t.dueDate || t.status === 'done') return false;
+    const dueDay = new Date(new Date(t.dueDate).getFullYear(), new Date(t.dueDate).getMonth(), new Date(t.dueDate).getDate());
+    return dueDay.getTime() === todayStart.getTime();
+  });
+
   const stats = [
     {
       label: 'Active projects',
@@ -341,6 +357,30 @@ export function DashboardPage() {
         }
       />
 
+      {/* ── Overdue / Due Today Alert Banner ────────────── */}
+      {(overdueTasks.length > 0 || dueTodayTasks.length > 0) && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm dark:border-amber-500/20">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="text-foreground">
+              {overdueTasks.length > 0 ? (
+                <>
+                  <strong className="text-rose-600 dark:text-rose-400">{overdueTasks.length} task{overdueTasks.length === 1 ? '' : 's'} overdue</strong>
+                  {dueTodayTasks.length > 0 && ` and ${dueTodayTasks.length} due today`} across your workspace.
+                </>
+              ) : (
+                <>
+                  <strong className="text-amber-600 dark:text-amber-400">{dueTodayTasks.length} task{dueTodayTasks.length === 1 ? '' : 's'} due today</strong> across your workspace.
+                </>
+              )}
+            </span>
+          </div>
+          <Link to="/projects" className="text-xs font-semibold text-primary hover:underline shrink-0">
+            Check project boards →
+          </Link>
+        </div>
+      )}
+
       {/* ── Key Metrics Cards ──────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s, i) => (
@@ -401,6 +441,23 @@ export function DashboardPage() {
                     {t.projectName} · {fromNow(t.updatedAt || t.createdAt)}
                   </div>
                 </div>
+                {(() => {
+                  const dueStatus = getDueDateStatus(t.dueDate, t.status);
+                  return t.dueDate ? (
+                    <span
+                      className={`hidden md:inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                        dueStatus?.isOverdue
+                          ? 'bg-destructive/15 text-destructive border border-destructive/25'
+                          : dueStatus?.isDueToday
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25'
+                          : 'text-muted-foreground bg-muted/50 border border-border/50'
+                      }`}
+                    >
+                      <Calendar className="h-3 w-3" />
+                      {dueStatus?.isDueToday ? 'Today' : formatDate(t.dueDate)}
+                    </span>
+                  ) : null;
+                })()}
                 {t.assignedTo && (
                   <Avatar user={t.assignedTo} size="sm" />
                 )}
