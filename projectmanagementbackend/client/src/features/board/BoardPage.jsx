@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Calendar,
   Clock,
+  Download,
   Inbox,
   KanbanSquare,
   List as ListIcon,
@@ -11,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
 } from 'lucide-react';
 import {
   DndContext,
@@ -41,6 +43,8 @@ import { toast, useUiStore, consumePendingCreate } from '../../stores/uiStore.js
 import { useBoardTasks } from './useBoardTasks.js';
 import { TaskCreateModal } from './TaskCreateModal.jsx';
 import { TaskDetailModal } from './TaskDetailModal.jsx';
+import { tasksApi } from '../../api/tasks.js';
+import { exportTasksToCSV } from '../../lib/exportService.js';
 
 const COLUMNS = [
   { status: 'todo', label: 'To Do', dot: 'bg-slate-400 dark:bg-slate-500' },
@@ -240,6 +244,83 @@ export function BoardPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
+  // Batch task selection state
+  const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
+
+  const handleToggleSelectAll = () => {
+    if (selectedTaskIds.size === filtered.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(filtered.map((t) => t._id)));
+    }
+  };
+
+  const handleToggleTask = (taskId) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const handleBatchMove = async (newStatus) => {
+    if (selectedTaskIds.size === 0 || batchBusy) return;
+    setBatchBusy(true);
+    try {
+      const targetTasks = board.tasks.filter((t) => selectedTaskIds.has(t._id));
+      await Promise.all(
+        targetTasks.map((t) => board.moveTask(t, newStatus))
+      );
+      toast.success(`Moved ${targetTasks.length} task(s) to ${statusLabel(newStatus)}.`);
+      setSelectedTaskIds(new Set());
+    } catch (err) {
+      toast.error(err?.message || 'Could not move all selected tasks.');
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const handleBatchPriority = async (newPriority) => {
+    if (selectedTaskIds.size === 0 || batchBusy) return;
+    setBatchBusy(true);
+    try {
+      const ids = Array.from(selectedTaskIds);
+      await Promise.all(
+        ids.map((id) => tasksApi.update(project._id, id, { priority: newPriority }))
+      );
+      toast.success(`Set ${ids.length} task(s) to ${newPriority} priority.`);
+      board.reload(true);
+      setSelectedTaskIds(new Set());
+    } catch (err) {
+      toast.error(err?.message || 'Could not update priority for all selected tasks.');
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedTaskIds.size === 0 || batchBusy) return;
+    if (!window.confirm(`Delete ${selectedTaskIds.size} selected task(s)? This cannot be undone.`)) return;
+    setBatchBusy(true);
+    try {
+      const ids = Array.from(selectedTaskIds);
+      await Promise.all(
+        ids.map(async (id) => {
+          await tasksApi.remove(project._id, id);
+          board.removeTask(id);
+        })
+      );
+      toast.success(`Deleted ${ids.length} task(s).`);
+      setSelectedTaskIds(new Set());
+    } catch (err) {
+      toast.error(err?.message || 'Could not delete all selected tasks.');
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
   const handleDndDragEnd = (event) => {
     setActiveTask(null);
     const { active, over } = event;
@@ -423,6 +504,20 @@ export function BoardPage() {
         </button>
       </div>
 
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          exportTasksToCSV(board.tasks || [], project?.name || 'project');
+          toast.success('Tasks exported to CSV.');
+        }}
+        className="gap-1.5"
+        title="Export tasks to CSV"
+      >
+        <Download className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Export CSV</span>
+      </Button>
+
       {canCreate && (
         <Button size="sm" onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" aria-hidden />
@@ -484,6 +579,15 @@ export function BoardPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedTaskIds.size === filtered.length}
+                    onChange={handleToggleSelectAll}
+                    className="h-4 w-4 rounded border-border cursor-pointer accent-primary"
+                    aria-label="Select all tasks"
+                  />
+                </th>
                 <th className="px-5 py-3 font-medium">Task</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Priority</th>
@@ -492,22 +596,35 @@ export function BoardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((t) => (
-                <tr
-                  key={t._id}
-                  className="cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => setOpenTaskId(t._id)}
-                >
-                  <td className="px-5 py-3 font-medium text-foreground">
-                    {t.title}
-                    {t.description && (
-                      <div className="line-clamp-1 text-xs font-normal text-muted-foreground">
-                        {t.description}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    <Badge variant="outline">{statusLabel(t.status)}</Badge>
+              {filtered.map((t) => {
+                const isSelected = selectedTaskIds.has(t._id);
+                return (
+                  <tr
+                    key={t._id}
+                    className={`cursor-pointer transition-colors ${
+                      isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30'
+                    }`}
+                    onClick={() => setOpenTaskId(t._id)}
+                  >
+                    <td className="w-10 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleTask(t._id)}
+                        className="h-4 w-4 rounded border-border cursor-pointer accent-primary"
+                        aria-label={`Select task ${t.title}`}
+                      />
+                    </td>
+                    <td className="px-5 py-3 font-medium text-foreground">
+                      {t.title}
+                      {t.description && (
+                        <div className="line-clamp-1 text-xs font-normal text-muted-foreground">
+                          {t.description}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <Badge variant="outline">{statusLabel(t.status)}</Badge>
                   </td>
                   <td className="px-5 py-3">
                     <Badge variant={priorityBadgeVariant(t.priority)}>{t.priority}</Badge>
@@ -552,7 +669,8 @@ export function BoardPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>
@@ -630,6 +748,79 @@ export function BoardPage() {
             )}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {/* Floating Batch Action Toolbar */}
+      {selectedTaskIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-2.5 rounded-xl border border-border bg-card/95 px-4 py-2.5 shadow-2xl backdrop-blur-md dark:border-dark-border dark:bg-dark-card/95">
+          <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+            <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+              {selectedTaskIds.size}
+            </span>
+            <span>selected</span>
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          {/* Batch Status Move */}
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground hidden sm:inline mr-1">Move:</span>
+            {COLUMNS.map((col) => (
+              <button
+                key={col.status}
+                type="button"
+                disabled={batchBusy}
+                onClick={() => handleBatchMove(col.status)}
+                className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted hover:border-primary/40 transition disabled:opacity-50"
+              >
+                {col.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-4 w-px bg-border hidden sm:block" />
+
+          {/* Batch Priority */}
+          <div className="hidden sm:flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground mr-1">Priority:</span>
+            {['HIGH', 'MEDIUM', 'LOW'].map((p) => (
+              <button
+                key={p}
+                type="button"
+                disabled={batchBusy}
+                onClick={() => handleBatchPriority(p)}
+                className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted hover:border-primary/40 transition disabled:opacity-50"
+              >
+                {p.charAt(0) + p.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+
+          {canManageContent(myRole) && (
+            <>
+              <div className="h-4 w-px bg-border" />
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={batchBusy}
+                onClick={handleBatchDelete}
+                className="h-7 text-xs text-danger hover:bg-danger/10 gap-1 px-2"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedTaskIds(new Set())}
+            className="h-7 text-xs text-muted-foreground px-2"
+          >
+            Cancel
+          </Button>
+        </div>
       )}
 
       {creating && (

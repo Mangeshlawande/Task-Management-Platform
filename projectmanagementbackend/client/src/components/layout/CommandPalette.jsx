@@ -16,6 +16,10 @@ import {
 } from 'lucide-react';
 import { Modal } from '../ui/index.js';
 import { useUiStore } from '../../stores/uiStore.js';
+import { projectsApi } from '../../api/projects.js';
+import { tasksApi } from '../../api/tasks.js';
+import { useCacheStore } from '../../stores/cacheStore.js';
+import { statusLabel } from '../../lib/format.js';
 
 /**
  * ⌘K / Ctrl+K command palette (docs/07 § 2.2). Hand-rolled — no cmdk, per the
@@ -44,6 +48,54 @@ export function CommandPalette({ onLogout }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef(null);
+
+  // Search index for global workspace deep search
+  const [indexData, setIndexData] = useState({ projects: [], tasks: [] });
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    async function loadIndex() {
+      try {
+        const cachedDashboard = useCacheStore.getState().get('workspace:dashboard');
+        if (cachedDashboard?.tasks && cachedDashboard?.projectList) {
+          if (!cancelled) {
+            setIndexData({
+              projects: cachedDashboard.projectList.map((p) => p.project || p),
+              tasks: cachedDashboard.tasks,
+            });
+          }
+          return;
+        }
+
+        const pList = await projectsApi.list().catch(() => []);
+        if (cancelled) return;
+        const projs = Array.isArray(pList) ? pList.map((p) => p.project || p) : [];
+
+        const taskPromises = projs.slice(0, 10).map((p) =>
+          tasksApi.list(p._id).then((ts) =>
+            Array.isArray(ts) ? ts.map((t) => ({ ...t, projectName: p.name, projectId: p._id })) : []
+          ).catch(() => [])
+        );
+
+        const taskArrays = await Promise.all(taskPromises);
+        if (!cancelled) {
+          setIndexData({
+            projects: projs,
+            tasks: taskArrays.flat(),
+          });
+        }
+      } catch {
+        // ignore network error
+      }
+    }
+
+    loadIndex();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   // The stored theme can be 'system' — toggle the EFFECTIVE dark state, not
   // the stored value, or "Switch to dark theme" no-ops on a system-dark page.
@@ -220,10 +272,37 @@ export function CommandPalette({ onLogout }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return commands;
-    return commands.filter((c) =>
-      `${c.label} ${c.keywords ?? ''}`.toLowerCase().includes(q),
+
+    const matchedCommands = commands.filter((c) =>
+      `${c.label} ${c.keywords ?? ''}`.toLowerCase().includes(q)
     );
-  }, [commands, query]);
+
+    // Deep search across projects
+    const matchedProjects = (indexData.projects || [])
+      .filter((p) => p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q))
+      .slice(0, 5)
+      .map((p) => ({
+        id: `proj-${p._id}`,
+        label: p.name,
+        hint: 'Project',
+        icon: FolderOpen,
+        run: () => navigate(`/projects/${p._id}`),
+      }));
+
+    // Deep search across tasks
+    const matchedTasks = (indexData.tasks || [])
+      .filter((t) => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
+      .slice(0, 8)
+      .map((t) => ({
+        id: `task-${t._id}`,
+        label: t.title,
+        hint: `${t.projectName || 'Task'} · ${statusLabel(t.status)}`,
+        icon: KanbanSquare,
+        run: () => navigate(`/projects/${t.projectId}/board`),
+      }));
+
+    return [...matchedCommands, ...matchedProjects, ...matchedTasks];
+  }, [commands, query, indexData, navigate]);
 
   // Reset selection whenever the result set changes.
   useEffect(() => {

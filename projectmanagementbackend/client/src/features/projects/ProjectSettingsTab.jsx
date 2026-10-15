@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Save } from 'lucide-react';
+import { AlertTriangle, Download, FileSpreadsheet, Save } from 'lucide-react';
 import { ApiError } from '../../api/client.js';
 import { useForm } from '../../lib/useForm.js';
 import { canManageProject } from '../../lib/format.js';
 import { Button, Field, Modal } from '../../components/ui/index.js';
 import { toast } from '../../stores/uiStore.js';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
+import { exportTasksToCSV, exportProjectToJSON } from '../../lib/exportService.js';
 
 /** Mirrors the Project model: name 3–100 (required), description ≤ 1000. */
 const validate = (values) => {
@@ -169,6 +170,44 @@ export function ProjectSettingsTab() {
             </div>
           )}
         </form>
+      </section>
+
+      {/* Data Export Section */}
+      <section className="app-card p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-foreground dark:text-dark-foreground">Export Project Data</h2>
+          <p className="mt-1 text-sm text-muted dark:text-dark-muted">
+            Download your tasks, priorities, assignees, and project structure as standard CSV or complete JSON backup.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              exportTasksToCSV(tasks || [], project?.name || 'project');
+              toast.success('Tasks exported to CSV.');
+            }}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4 text-primary" />
+            Export Tasks (CSV)
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              exportProjectToJSON({ project, tasks: tasks || [], members: members || [] });
+              toast.success('Full project exported to JSON.');
+            }}
+            className="gap-2"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+            Export Project (JSON)
+          </Button>
+        </div>
       </section>
 
       {canEdit && (
