@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useParams, useNavigate, Link } from 'react-router-dom';
+import { NavLink, Outlet, useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   LayoutDashboard,
@@ -7,9 +7,12 @@ import {
   StickyNote,
   Users,
   Settings,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useProjectDetail } from '../../features/projects/useProjectDetail.js';
+import { useUiStore } from '../../stores/uiStore.js';
 import { Badge, Button, Skeleton } from '../ui/index.js';
 import {
   formatDate,
@@ -46,9 +49,36 @@ const TABS = [
 export function ProjectLayout() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const tabsContainerRef = useRef(null);
+  const moreMenuRef = useRef(null);
 
   const detail = useProjectDetail(projectId);
   const { project, members, tasks, myRole, status, error, reload } = detail;
+
+  // Auto-scroll active tab into center of sliding window
+  useEffect(() => {
+    if (tabsContainerRef.current) {
+      const activeEl = tabsContainerRef.current.querySelector('[aria-current="page"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [location.pathname]);
+
+  // Click outside listener to dismiss the More dropdown
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [moreMenuOpen]);
 
   const memberCount = project?.members ?? members.length;
   const projectTasks = tasks || [];
@@ -148,28 +178,98 @@ export function ProjectLayout() {
           </div>
         </header>
 
-        <nav aria-label="Project sections">
-          <ul className="flex flex-wrap gap-1 border-b border-border">
-            {TABS.map(({ to, end, label, icon: Icon }) => (
-              <li key={label}>
+        <nav aria-label="Project sections" className="relative">
+          {/* Responsive Sliding Window Tab Bar with Quick-More Dropdown */}
+          <div className="flex items-center justify-between gap-2 border-b border-border pb-1">
+            {/* Sliding Window: Smooth horizontal swipe/scroll on mobile, never wraps onto multiple lines */}
+            <div
+              ref={tabsContainerRef}
+              className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 scroll-smooth scrollbar-none snap-x"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {TABS.map(({ to, end, label, icon: Icon }) => (
                 <NavLink
+                  key={label}
                   to={to}
                   end={end}
                   className={({ isActive }) =>
-                    `-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition
-                    ${
+                    `snap-start shrink-0 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs md:text-sm font-medium transition-all ${
                       isActive
-                        ? 'border-primary text-primary font-semibold'
-                        : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`
                   }
                 >
-                  <Icon className="h-4 w-4" aria-hidden />
-                  {label}
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="whitespace-nowrap">{label}</span>
                 </NavLink>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+
+            {/* Mobile "More ▾" Quick Jump Menu (for mobile users who prefer 1-tap dropdown) */}
+            <div className="relative shrink-0 md:hidden" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setMoreMenuOpen((o) => !o)}
+                aria-expanded={moreMenuOpen}
+                aria-label="More project sections"
+                className={`inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-xs font-semibold shadow-xs transition ${
+                  moreMenuOpen
+                    ? 'bg-accent text-accent-foreground border-primary/50'
+                    : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <span>More</span>
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                    moreMenuOpen ? 'rotate-180 text-primary' : ''
+                  }`}
+                  aria-hidden
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {moreMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl border border-border bg-card p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150"
+                  role="menu"
+                >
+                  <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border mb-1">
+                    All Project Tabs (6)
+                  </div>
+                  <div className="space-y-0.5">
+                    {TABS.map(({ to, end, label, icon: Icon }) => {
+                      const isActive = end
+                        ? location.pathname === `/projects/${projectId}` || location.pathname === `/projects/${projectId}/`
+                        : location.pathname.includes(`/projects/${projectId}/${to}`) ||
+                          (to === 'board' && location.pathname.includes('/tasks')) ||
+                          (to === 'discussions' && location.pathname.includes('/comments'));
+
+                      return (
+                        <NavLink
+                          key={label}
+                          to={to}
+                          end={end}
+                          onClick={() => setMoreMenuOpen(false)}
+                          className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition ${
+                            isActive
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
+                            <span className="truncate">{label}</span>
+                          </div>
+                          {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </nav>
 
         <Outlet />

@@ -35,14 +35,14 @@ import { useLiveSync } from '../../lib/useLiveSync.js';
 
 function WeeklyThroughputChart({ data }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2 shadow-sm">
+    <div className="w-full min-w-0 rounded-xl border border-border bg-card p-5 lg:col-span-2 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Weekly throughput</h3>
         <Badge variant="secondary" className="font-normal text-xs">
           Last 7 days
         </Badge>
       </div>
-      <div className="h-64">
+      <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} barGap={6}>
             <CartesianGrid
@@ -84,9 +84,9 @@ function WeeklyThroughputChart({ data }) {
 
 function TaskDistributionChart({ statusData }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="mb-4 text-sm font-semibold">Task distribution</h3>
-      <div className="h-48">
+    <div className="w-full min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-semibold text-foreground">Task distribution</h3>
+      <div className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -320,17 +320,17 @@ export function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6" aria-busy="true">
+      <div className="w-full space-y-6" aria-busy="true">
         <Skeleton className="h-8 w-64" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+          <Skeleton className="h-28 rounded-xl w-full" />
+          <Skeleton className="h-28 rounded-xl w-full" />
+          <Skeleton className="h-28 rounded-xl w-full" />
+          <Skeleton className="h-28 rounded-xl w-full" />
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-80 rounded-xl lg:col-span-2" />
-          <Skeleton className="h-80 rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
+          <Skeleton className="h-80 rounded-xl lg:col-span-2 w-full" />
+          <Skeleton className="h-80 rounded-xl w-full" />
         </div>
       </div>
     );
@@ -338,7 +338,7 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center">
+      <div className="w-full rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center">
         <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
         <h3 className="mt-2 text-base font-semibold text-destructive">Dashboard Error</h3>
         <p className="mt-1 text-sm text-muted-foreground">{error}</p>
@@ -350,7 +350,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-2 py-4 md:px-4 md:py-6 space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 w-full">
       <PageHeader
         title={`Welcome back, ${user?.fullName?.split(' ')[0] || user?.username || 'Team'}`}
         description="Here's what's happening across your workspace today."
@@ -364,9 +364,31 @@ export function DashboardPage() {
         }
       />
 
+      {/* ── Key Metrics Cards (Animated - Displayed first for immediate impact) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        {stats.map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05, duration: 0.25 }}
+            className="w-full min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{s.label}</span>
+              <s.icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground">
+              {s.value}
+            </div>
+            <div className="mt-1 text-xs text-success">{s.delta}</div>
+          </motion.div>
+        ))}
+      </div>
+
       {/* ── Overdue / Due Today Alert Banner ────────────── */}
       {(overdueTasks.length > 0 || dueTodayTasks.length > 0) && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm dark:border-amber-500/20">
+        <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm dark:border-amber-500/20 shadow-sm">
           <div className="flex items-center gap-2.5">
             <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
             <span className="text-foreground">
@@ -388,32 +410,10 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ── Key Metrics Cards ──────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="rounded-xl border border-border bg-card p-5 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{s.label}</span>
-              <s.icon className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground">
-              {s.value}
-            </div>
-            <div className="mt-1 text-xs text-success">{s.delta}</div>
-          </motion.div>
-        ))}
-      </div>
-
       <div className="border-b border-border my-6" />
 
       {/* ── Weekly Throughput & Task Distribution ─────── */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
         <WeeklyThroughputChart data={weeklyData} />
         <TaskDistributionChart statusData={statusData} />
       </div>
@@ -421,9 +421,9 @@ export function DashboardPage() {
       <div className="border-b border-border my-6" />
 
       {/* ── Recent Tasks & Activity Feed ────────────── */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
         {/* Recent Tasks */}
-        <div className="rounded-xl border border-border bg-card lg:col-span-2 shadow-sm">
+        <div className="w-full min-w-0 rounded-xl border border-border bg-card lg:col-span-2 shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-sm font-semibold text-foreground">Recent tasks</h3>
             <Link to="/projects" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -484,6 +484,7 @@ export function DashboardPage() {
           activities={activities}
           title="Workspace Activity"
           emptyMessage="No workspace activity yet."
+          className="w-full min-w-0"
         />
       </div>
     </div>

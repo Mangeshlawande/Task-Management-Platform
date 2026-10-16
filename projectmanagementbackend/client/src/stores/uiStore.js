@@ -58,6 +58,34 @@ export const useUiStore = create(
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed }));
       },
 
+      mobileSidebarOpen: false,
+
+      openMobileSidebar() {
+        set({ mobileSidebarOpen: true });
+      },
+
+      closeMobileSidebar() {
+        set({ mobileSidebarOpen: false });
+      },
+
+      setMobileSidebarOpen(open) {
+        set({ mobileSidebarOpen: Boolean(open) });
+      },
+
+      helpOpen: false,
+
+      openHelp() {
+        set({ helpOpen: true });
+      },
+
+      closeHelp() {
+        set({ helpOpen: false });
+      },
+
+      toggleHelp() {
+        set((s) => ({ helpOpen: !s.helpOpen }));
+      },
+
       /** { kind: 'project' | 'task' | 'note', projectId?, ts } */
       pendingCreate: null,
 

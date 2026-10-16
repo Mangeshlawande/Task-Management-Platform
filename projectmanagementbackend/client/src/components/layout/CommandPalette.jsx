@@ -13,6 +13,7 @@ import {
   StickyNote,
   Sun,
   Users,
+  HelpCircle,
 } from 'lucide-react';
 import { Modal } from '../ui/index.js';
 import { useUiStore } from '../../stores/uiStore.js';
@@ -44,6 +45,7 @@ export function CommandPalette({ onLogout }) {
   const close = useUiStore((s) => s.closePalette);
   const setPendingCreate = useUiStore((s) => s.setPendingCreate);
   const setTheme = useUiStore((s) => s.setTheme);
+  const openHelp = useUiStore((s) => s.openHelp);
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -178,6 +180,17 @@ export function CommandPalette({ onLogout }) {
         icon: isDark ? Sun : Moon,
         keywords: 'dark light mode appearance',
         run: () => setTheme(isDark ? 'light' : 'dark'),
+      },
+      {
+        id: 'system-help',
+        label: 'System Guide & Workflow Overview',
+        hint: 'Help',
+        icon: HelpCircle,
+        keywords: 'help guide system overview workflow documentation docs learn instructions',
+        run: () => {
+          close();
+          openHelp();
+        },
       },
       {
         id: 'logout',

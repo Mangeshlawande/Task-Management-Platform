@@ -17,6 +17,8 @@
 
 - [Overview](#-overview)
 - [Key Engineering Highlights](#-key-engineering-highlights)
+- [Solutions by Team & Use Cases](#-solutions-by-team--use-cases)
+- [System Overview & Workflow Guide](#-system-overview--workflow-guide-help-center)
 - [Feature Showcase](#-feature-showcase)
 - [Architecture & Data Flow](#-architecture--data-flow)
 - [Tech Stack](#-tech-stack)
@@ -27,7 +29,7 @@
 - [API Documentation & Architecture](#-api-documentation--architecture)
 - [Security & Performance](#-security--performance)
 - [Testing & Quality Assurance](#-testing--quality-assurance)
-- [Author & Connect](#-author--connect)
+- [Contact & Collaboration](#-contact--collaboration)
 
 ---
 
@@ -65,17 +67,140 @@ Whether viewed on a desktop multi-monitor workstation or a mobile device, WorkPu
 
 ---
 
+## 🎯 Solutions by Team & Use Cases
+
+WorkPulse provides tailored solutions for modern cross-functional teams, eliminating the clutter and administrative friction common in traditional enterprise tools:
+
+### 1. 🚀 Product Management Teams
+- **Pain Point**: Product managers get bogged down maintaining complex Jira boards, updating disconnected sprint spreadsheets, and tracking fragmented subtask progress.
+- **WorkPulse Solution**:
+  - **Sprint Backlog Grooming**: Organize initiatives with priority tags (`urgent`, `high`, `medium`, `low`) and due-date alerts.
+  - **Progress Rollups**: Subtasks automatically roll up into real-time visual completion percentages on Kanban cards.
+  - **Roadmap Discussions**: Maintain living product requirements and sprint retrospective documentation inside project-scoped Markdown notes.
+  - **Stakeholder Exports**: Export task inventories, assignees, and completion milestones to CSV or JSON with one click.
+
+### 2. 🎨 Design Teams
+- **Pain Point**: Designers struggle with visual review feedback scattered across Slack messages, lost attachment uploads, and disconnected Figma link threads.
+- **WorkPulse Solution**:
+  - **Multi-Image Attachment Lightbox**: Upload up to 5 image assets (1MB each) per task card with high-resolution lightbox previews.
+  - **Design Specs in Markdown**: Document typography, spacing tokens, and component guidelines directly alongside task tickets.
+  - **Iterative Checklists**: Create subtask checklists for wireframes, component design, prototype review, and design handoff.
+
+### 3. 📢 Marketing Teams
+- **Pain Point**: Marketing campaigns involve dozens of parallel dependencies (content, social, ads, email, PR) that slip without clear delivery pipelines.
+- **WorkPulse Solution**:
+  - **Multi-Channel Launch Boards**: Dedicated boards mapping marketing phases from idea generation to launch day distribution.
+  - **Editorial Calendars**: Track blog posts, newsletter schedules, and campaign deadlines with due-date tracking.
+  - **Asset Approval Workflows**: Centralize copy, banners, and collateral inside task discussions with full version history.
+
+### 4. 🏢 Management & Leadership Teams
+- **Pain Point**: Engineering leaders and executives lack an instant high-level snapshot of project health, member capacity, and delivery bottlenecks.
+- **WorkPulse Solution**:
+  - **Executive Dashboard Donut**: Hand-rolled SVG status breakdown donut displaying real-time task distribution (`todo`, `in_progress`, `done`).
+  - **Workload Capacity Monitoring**: Visual member pipeline modal displaying active assignments per team member to prevent burnout.
+  - **Role-Based Governance**: Restrict administrative actions (project deletion, member role upgrades) while empowering team autonomy.
+
+### 5. ⚡ Startups & Scale-ups
+- **Pain Point**: Early-stage startups need to move fast without spending hours configuring permissions, setting up email verification servers, or paying $15–$25/user/month.
+- **WorkPulse Solution**:
+  - **Instant Sign-up & Onboarding**: Zero verification gate — users sign up and land directly in their workspace in under 5 seconds.
+  - **⌘K Keyboard Speed**: Add tasks and switch contexts instantly without touching the mouse.
+  - **Zero-Tool Sprawl**: Replaces separate note apps, to-do lists, and status trackers with a single lightweight hub.
+
+### 6. 🌍 Remote & Distributed Teams
+- **Pain Point**: Distributed teams face time-zone lag, status-update fatigue, and dropped connections when traveling or working remotely.
+- **WorkPulse Solution**:
+  - **Asynchronous Standups**: Project-level Markdown notes replace scheduled status meetings with self-documenting updates.
+  - **Connection Resilience Banner**: Detects offline state (`navigator.onLine` / API healthcheck probes) and seamlessly reconnects with automated background sync.
+  - **Transparent Accountability**: Assignee avatars and status chips make task ownership obvious across global time zones.
+
+### 7. ⚙️ DevOps & Engineering Teams
+- **Pain Point**: Developers hate leaving their IDEs to wrestle with slow, heavyweight web interfaces that require constant loading spinners.
+- **WorkPulse Solution**:
+  - **Keyboard-First Workflow**: Full keyboard shortcuts (`⌘K` command palette, ESC dismissal, arrow navigation) matching developer muscle memory.
+  - **Incident & Runbook Tracking**: Track critical infrastructure migrations and outage post-mortems with urgent flags and checklists.
+  - **Interactive OpenAPI/Swagger**: Backend REST API contracts fully documented at `/api-docs` for seamless CI/CD script integration.
+
+---
+
+## 🧭 System Overview & Workflow Guide (Help Center)
+
+This guide provides an end-to-end breakdown of WorkPulse's architectural hierarchy, lifecycle flows, and developer features to help contributors, recruiters, and team members understand how the system executes work.
+
+### 1. System Architecture & Hierarchy Tree
+WorkPulse isolates data across clear boundaries:
+
+```
+🏢 Global Workspace
+└── 📁 Projects (Isolated Collaborative Containers)
+    ├── 📋 Kanban Board (To Do → In Progress → Done)
+    │   └── 🏷️ Tasks
+    │       ├── 📌 Priority (urgent / high / medium / low)
+    │       ├── 👤 Assignee (Project Member Snapshot)
+    │       ├── 📅 Due Date & Alerts
+    │       ├── 📎 Image Attachments (Multer: up to 5 × 1MB)
+    │       └── 🔘 Subtask Checklist (Rolls up to % progress)
+    ├── 📝 Discussions & Markdown Notes (Specs, RFCs, Pinning)
+    ├── 👥 Team Roster (3-Tier RBAC Scoping)
+    └── 📊 Project Analytics (Status Donut & Activity Feeds)
+```
+
+---
+
+### 2. End-to-End Workflow Walkthrough
+
+#### Step 1: Onboarding & Workspace Initialization
+- **Instant Access**: Account registration requires **zero email verification wait time** (`POST /api/v1/auth/register`). Users are authenticated immediately and issued dual JWT tokens in `httpOnly` `SameSite=Lax` cookies.
+- **Projects Hub**: Create an initiative with a title, description, and team scope (`POST /api/v1/projects`).
+
+#### Step 2: Team Member Governance (3-Tier RBAC)
+Project security is enforced via server middleware (`validateProjectPermission`):
+- **👑 Admin**: Complete project authority (edit project settings, invite/remove members, update roles, delete project).
+- **🛡️ Project Admin**: Manage tasks, subtasks, and notes; invite new collaborators.
+- **👤 Team Member**: View boards, update own assigned task statuses, and check off completed subtasks.
+
+#### Step 3: Sprint Execution on the Kanban Board
+- **Fluid Drag-and-Drop**: Built using `@dnd-kit` with collision detection.
+- **Optimistic State Machine**: The client updates the visual DOM immediately upon dropping a card. The native API client syncs `PUT /projects/:id/tasks/:taskId` in the background. If a network failure occurs, the UI rolls back automatically and surfaces a non-blocking toast.
+- **Subtask Progress Calculation**: As team members complete checklist items, the task card calculates and renders a dynamic visual completion ring.
+
+#### Step 4: Markdown Documentation & Discussions
+- Document technical architecture, sprint retrospectives, and meeting notes in the **Notes** tab.
+- **Pinning Engine**: Pinned notes always sort to the top of the grid with instant visual feedback.
+- **Server-Mirrored Pagination**: 12 items per page ensuring rapid load times even with extensive documentation.
+
+#### Step 5: Power-User Keyboard Navigation (⌘K / Ctrl+K)
+- Press **`⌘K`** (macOS) or **`Ctrl+K`** (Windows/Linux) anywhere to open the hand-rolled Command Palette.
+- Quickly search across projects and tasks, trigger task creation dialogs, or toggle dark/light appearance.
+- Fully accessible keyboard focus trapping: `↑`/`↓` to navigate, `Enter` to select, `Esc` to dismiss.
+
+#### Step 6: Telemetry, Reporting & Data Portability
+- **Dashboard Donut**: Hand-rolled SVG status breakdown donut displaying real-time task distribution.
+- **Workload Capacity**: Inspect member assignment distribution to balance team bandwidth.
+- **One-Click Export**: Export tasks, statuses, priorities, and assignees to spreadsheet-ready **CSV** or raw **JSON**.
+
+---
+
+### 3. Native In-App Help Guide
+WorkPulse includes an interactive **Help & Workflow Modal** accessible directly inside the web application:
+- Click the **`HelpCircle` icon** in the topbar navigation.
+- Or press **`⌘K`** and search for `"help"` or `"guide"` to open the interactive walkthrough anytime.
+
+---
+
 ## ✨ Feature Showcase
 
-| Feature | Description |
+| Feature | Capabilities & Practical Applications |
 |---|---|
-| **Kanban Board** | Visual 3-column workflow with drag-and-drop sorting, priority badges (`low`, `medium`, `high`, `urgent`), due-date alerts, and subtask progress rings. |
-| **Task Detail Lightbox** | Multi-image attachments (up to 5 × 1MB images via Multer), interactive subtask checklists, Markdown task descriptions, and member assignment. |
-| **Project Dashboard** | Real-time SVG status donut chart (handcrafted without bulky libraries), member distribution counters, and live activity streams. |
-| **Project Notes & Docs** | Markdown-supported note repository with optimistic note pinning, search, and paginated views. |
-| **Team Member Management** | Searchable member directory, role assignment dropdowns, member workload distribution pipelines, and safe removal flows. |
-| **Data Export Engine** | One-click client-side export to both **CSV** and structured **JSON** for tasks, project metadata, and activity audits. |
-| **Theme System** | Seamless Dark / Light mode switching with zero dark-mode flash using pre-paint inline script execution. |
+| **Kanban Pipeline** | Fluid 3-column workflow (`To Do`, `In Progress`, `Done`) with drag-and-drop sorting, priority indicators, due dates, and assignee filters. |
+| **Task Lightbox & Media** | Multi-image attachments (up to 5 × 1MB images via Multer), interactive subtask checklists, and Markdown descriptions. |
+| **Project Dashboard** | Real-time SVG status donut chart (zero third-party dependencies), member counters, and activity telemetry streams. |
+| **Project Notes & Docs** | Markdown note repository with optimistic note pinning, server-mirrored pagination (12/page), and full-text search. |
+| **Member Management** | Role management (Admin, Project Admin, Member), invite by email, member capacity pipelines, and safe removal cascades. |
+| **Command Palette (⌘K)** | Handcrafted accessible keyboard launcher for fast navigation, quick task creation, and instant theme switching. |
+| **Data Export Engine** | Client-side export engine outputting sanitized **CSV** and structured **JSON** for tasks, projects, and auditing. |
+| **Connection Resilience** | Real-time connection detection banner with automated 5-second healthcheck polling and background reconciliation. |
+| **Theme System** | Seamless Dark / Light mode toggle with zero dark-mode flash using pre-paint inline execution. |
 
 ---
 
@@ -84,7 +209,7 @@ Whether viewed on a desktop multi-monitor workstation or a mobile device, WorkPu
 ```mermaid
 flowchart TD
     subgraph Client ["Client (React 19 + Tailwind CSS v4)"]
-        UI["UI Components & Pages"]
+        UI["UI Components & Landing Page"]
         Store["Zustand State Stores (Auth, UI, Board, Project)"]
         APIClient["API Client (Native Fetch + Token Retry)"]
         MockAPI["Mock Mode Service Worker / Interceptor"]
@@ -119,7 +244,7 @@ flowchart TD
 
 ### Frontend
 - **Framework**: [React 19](https://react.dev/) + [Vite 6](https://vitejs.dev/)
-- **Routing**: [React Router v7](https://reactrouter.com/) (Route code-splitting & lazy evaluation)
+- **Routing**: [React Router v7](https://reactrouter.com/) (Route code-splitting & manual chunking)
 - **State Management**: [Zustand v5](https://github.com/pmndrs/zustand)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + OKLCH dynamic color palettes
 - **Drag & Drop**: [@dnd-kit/core](https://dndkit.com/)
@@ -267,15 +392,32 @@ Refer to [`TESTCASES.md`](TESTCASES.md) for the complete end-to-end test verific
 
 ---
 
-## 👤 Author & Connect
+## 📬 Contact & Collaboration
 
-**Mangesh Lawande**  
+Have questions, suggestions, or want to discuss full-stack software engineering opportunities? Reach out directly:
+
+- **Creator & Engineer**: Mangesh Lawande
+- **Email**: [mangeshlawande223@gmail.com](mailto:mangeshlawande223@gmail.com)
 - **GitHub**: [@Mangeshlawande](https://github.com/Mangeshlawande)
 - **Repository**: [Task-Management-Platform](https://github.com/Mangeshlawande/Task-Management-Platform)
-- **Role**: Full-Stack Engineer
+- **Availability**: Open for software engineering roles, high-impact contract work, and technical collaborations.
 
 ---
 
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE) — feel free to use it for portfolio showcases, learning, or enterprise extension.
+
+---
+
+<div align="center">
+
+### WorkPulse — Full-Stack Task &amp; Project Management Platform
+
+Designed &amp; Engineered with ❤️ by **[Mangesh Lawande](https://github.com/Mangeshlawande)**
+
+[GitHub Repository](https://github.com/Mangeshlawande/Task-Management-Platform) · [Direct Email](mailto:mangeshlawande223@gmail.com) · [Test Verification Matrix](TESTCASES.md) · [OpenAPI Spec](http://localhost:8000/api-docs)
+
+*Built with React 19, Express 5, MongoDB, Tailwind CSS v4, and Vite 6.*
+
+</div>

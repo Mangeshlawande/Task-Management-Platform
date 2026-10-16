@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Circle, Clock, ListTodo, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { projectsApi } from '../../api/projects.js';
 import { ApiError } from '../../api/client.js';
 import { Avatar, Badge, Skeleton } from '../../components/ui/index.js';
@@ -84,10 +85,10 @@ export function ProjectDashboardTab() {
 
   if (status === 'loading') {
     return (
-      <div className="space-y-4" aria-busy="true" aria-label="Loading dashboard">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-4 w-full" aria-busy="true" aria-label="Loading dashboard">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="app-card p-5">
+            <div key={i} className="w-full min-w-0 app-card p-5">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="mt-3 h-8 w-16" />
             </div>
@@ -100,7 +101,7 @@ export function ProjectDashboardTab() {
 
   if (status === 'error') {
     return (
-      <div className="app-card p-6 text-sm text-danger" role="alert">
+      <div className="w-full app-card p-6 text-sm text-danger" role="alert">
         {error}
       </div>
     );
@@ -119,10 +120,17 @@ export function ProjectDashboardTab() {
     stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="app-card p-5">
+    <div className="space-y-4 w-full">
+      {/* ── Key Metrics Cards (Animated - Displayed first) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        {cards.map(({ label, value, icon: Icon, tone }, idx) => (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.05, duration: 0.25 }}
+            className="w-full min-w-0 app-card p-5"
+          >
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted dark:text-dark-muted">{label}</span>
               <Icon className={`h-4 w-4 ${tone}`} aria-hidden />
@@ -130,13 +138,13 @@ export function ProjectDashboardTab() {
             <p className="mt-2 text-3xl font-semibold text-foreground dark:text-dark-foreground">
               {value}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       <StatusBreakdownChart stats={stats} />
 
-      <div className="app-card p-5">
+      <div className="w-full min-w-0 app-card p-5">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-foreground dark:text-dark-foreground">
             Progress
@@ -161,9 +169,9 @@ export function ProjectDashboardTab() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
         {/* Recent Tasks */}
-        <div className="app-card">
+        <div className="w-full min-w-0 app-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4 dark:border-dark-border">
             <h2 className="text-sm font-semibold text-foreground dark:text-dark-foreground">
               Recent tasks
@@ -208,6 +216,7 @@ export function ProjectDashboardTab() {
           activities={activities}
           title="Project Activity"
           emptyMessage="No activity in this project yet."
+          className="w-full min-w-0"
         />
       </div>
     </div>

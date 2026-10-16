@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Home, PanelLeft, LogOut, Menu, Search, Settings, X } from 'lucide-react';
+import { ArrowLeft, Home, PanelLeft, Menu, Search, Settings, X, HelpCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useUiStore } from '../../stores/uiStore.js';
-import { Avatar, Button, Logo, ThemeToggle } from '../ui/index.js';
+import { Avatar, Logo } from '../ui/index.js';
 import { Sidebar } from './Sidebar.jsx';
 import { CommandPalette } from './CommandPalette.jsx';
 import { ConnectionBanner } from './ConnectionBanner.jsx';
 import { NotificationCenter } from './NotificationCenter.jsx';
+import { HelpModal } from '../common/HelpModal.jsx';
 import { syncUserNotifications } from '../../lib/syncNotifications.js';
 import { useLiveSync } from '../../lib/useLiveSync.js';
 
@@ -19,13 +20,23 @@ export function ProtectedLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/dashboard' || location.pathname === '/';
-  const [busy, setBusy] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileOpen = useUiStore((s) => s.mobileSidebarOpen);
+  const setMobileOpen = useUiStore((s) => s.setMobileSidebarOpen);
+  const closeMobileSidebar = useUiStore((s) => s.closeMobileSidebar);
+  const openMobileSidebar = useUiStore((s) => s.openMobileSidebar);
 
   const openPalette = useUiStore((s) => s.openPalette);
   const togglePalette = useUiStore((s) => s.togglePalette);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const helpOpen = useUiStore((s) => s.helpOpen);
+  const openHelp = useUiStore((s) => s.openHelp);
+  const closeHelp = useUiStore((s) => s.closeHelp);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    closeMobileSidebar();
+  }, [location.pathname, closeMobileSidebar]);
 
   // Global ⌘K / Ctrl+K binding (docs/07 § 2.2).
   useEffect(() => {
@@ -55,20 +66,15 @@ export function ProtectedLayout() {
   });
 
   const handleLogout = async () => {
-    setBusy(true);
-    try {
-      await logout();
-      navigate('/login', { replace: true });
-    } finally {
-      setBusy(false);
-    }
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       {/* Desktop Sidebar */}
       <div className="hidden h-full flex-shrink-0 md:flex">
-        <Sidebar />
+        <Sidebar onLogout={handleLogout} />
       </div>
 
       {/* Mobile Slide-Over Drawer */}
@@ -98,7 +104,7 @@ export function ProtectedLayout() {
               >
                 <X className="h-5 w-5" />
               </button>
-              <Sidebar onNavigate={() => setMobileOpen(false)} />
+              <Sidebar onNavigate={() => setMobileOpen(false)} onLogout={handleLogout} />
             </motion.div>
           </div>
         )}
@@ -107,13 +113,13 @@ export function ProtectedLayout() {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-14 flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
+        <header className="sticky top-0 z-30 flex h-14 flex-shrink-0 items-center justify-between gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2 max-w-xl">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
               aria-label="Open mobile navigation"
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden shrink-0"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -132,19 +138,19 @@ export function ProtectedLayout() {
               />
             </button>
 
-            {/* Smart Navigation: Back & Home (keeps only 1 button on Home or when density/space is constrained) */}
+            {/* Smart Navigation: Back & Home (Desktop/Tablet) */}
             {isHome ? (
               <Link
                 to="/dashboard"
                 aria-label="Home"
                 title="Home (Dashboard)"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 text-xs font-semibold text-primary shadow-sm transition hover:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
+                className="hidden sm:inline-flex h-9 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 text-xs font-semibold text-primary shadow-sm transition hover:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
               >
                 <Home className="h-3.5 w-3.5" aria-hidden />
-                <span className="hidden sm:inline">Home</span>
+                <span>Home</span>
               </Link>
             ) : (
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="hidden sm:flex items-center gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -159,15 +165,14 @@ export function ProtectedLayout() {
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground shadow-sm transition hover:bg-accent hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                  <span className="hidden sm:inline">Back</span>
+                  <span>Back</span>
                 </button>
 
-                {/* Home shortcut: visible on standard density (sm+), omitted on compact/low-density screens so only 1 button is kept */}
                 <Link
                   to="/dashboard"
                   aria-label="Go to Dashboard (Home)"
                   title="Home (Dashboard)"
-                  className="hidden sm:inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground shadow-sm transition hover:bg-accent hover:text-foreground hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground shadow-sm transition hover:bg-accent hover:text-foreground hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
                 >
                   <Home className="h-3.5 w-3.5" aria-hidden />
                   <span>Home</span>
@@ -175,33 +180,56 @@ export function ProtectedLayout() {
               </div>
             )}
 
-            <Link to="/projects" aria-label="WorkPulse home" className="md:hidden shrink-0">
+            {/* Mobile Brand / Logo */}
+            <Link to="/dashboard" aria-label="WorkPulse home" className="md:hidden shrink-0 flex items-center">
               <Logo />
             </Link>
 
-            {/* Expanded Search Feature */}
+            {/* Search Input for sm+ screens */}
             <button
               type="button"
               onClick={openPalette}
               aria-label="Open command palette (Control or Command + K)"
-              className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="hidden sm:flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <Search className="h-4 w-4 shrink-0" aria-hidden />
               <span className="flex-1 text-left truncate">Search projects, tasks, notes…</span>
-              <kbd className="hidden rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium font-sans sm:inline-block">
+              <kbd className="hidden rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium font-sans md:inline-block">
                 Ctrl K
               </kbd>
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Right Topbar Actions */}
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+            {/* Mobile Search Button (< sm) */}
+            <button
+              type="button"
+              onClick={openPalette}
+              aria-label="Search"
+              className="sm:hidden rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
+            {/* Notifications */}
             <NotificationCenter />
-            <ThemeToggle />
+
+            {/* Desktop Only Actions - Available in mobile sidebar for mobile users */}
+            <button
+              type="button"
+              onClick={openHelp}
+              aria-label="System overview & help guide"
+              title="System overview & help guide"
+              className="hidden md:inline-flex rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <HelpCircle className="h-4 w-4" aria-hidden />
+            </button>
 
             {user && (
               <Link
                 to="/profile"
-                className="group flex items-center gap-2 rounded-lg p-1 transition hover:bg-muted"
+                className="hidden md:flex group items-center gap-2 rounded-lg p-1 transition hover:bg-muted"
                 title="View your profile"
               >
                 <Avatar user={user} size="sm" />
@@ -211,22 +239,11 @@ export function ProtectedLayout() {
               </Link>
             )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              loading={busy}
-              aria-label="Log out"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Log out</span>
-            </Button>
-
             <Link
               to="/settings"
               aria-label="Settings"
               title="Settings"
-              className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="hidden md:inline-flex rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <Settings className="h-4 w-4" aria-hidden />
             </Link>
@@ -242,6 +259,7 @@ export function ProtectedLayout() {
       </div>
 
       <CommandPalette onLogout={handleLogout} />
+      <HelpModal open={helpOpen} onClose={closeHelp} />
     </div>
   );
 }

@@ -7,9 +7,25 @@ const options = [
   { value: 'system', icon: Monitor, label: 'System theme' },
 ];
 
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }) {
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
+
+  if (compact) {
+    const nextTheme = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
+    const CurrentIcon = theme === 'dark' ? Moon : theme === 'system' ? Monitor : Sun;
+    return (
+      <button
+        type="button"
+        onClick={() => setTheme(nextTheme)}
+        aria-label={`Toggle theme (currently ${theme})`}
+        title={`Theme: ${theme} (click to toggle)`}
+        className="flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
+      >
+        <CurrentIcon className="h-4 w-4" aria-hidden />
+      </button>
+    );
+  }
 
   return (
     <div

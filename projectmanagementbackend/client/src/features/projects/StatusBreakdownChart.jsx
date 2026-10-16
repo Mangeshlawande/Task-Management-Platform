@@ -31,7 +31,7 @@ export function StatusBreakdownChart({ stats }) {
     : [{ name: 'No tasks', value: 1, fill: 'oklch(0.6 0.02 264 / 0.15)' }];
 
   return (
-    <div className="app-card p-5">
+    <div className="w-full min-w-0 app-card p-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Status breakdown</h2>
