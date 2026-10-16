@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Eye, EyeOff, ShieldCheck, LogOut } from 'lucide-react';
+import { KeyRound, Eye, EyeOff, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
 import { ApiError } from '../../api/client.js';
 import { authApi } from '../../api/auth.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useForm } from '../../lib/useForm.js';
 import { validatePassword } from '../../lib/validators.js';
 import { roleLabel, roleBadgeVariant } from '../../lib/format.js';
-import { Avatar, Badge, Button, Field } from '../../components/ui/index.js';
+import { Avatar, Badge, Button, Field, Modal } from '../../components/ui/index.js';
 import { toast } from '../../stores/uiStore.js';
 
 const initial = { oldPassword: '', newPassword: '', confirmPassword: '' };
@@ -36,8 +36,25 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const clearSession = useAuthStore((s) => s.clearSession);
+  const deleteAccount = useAuthStore((s) => s.deleteAccount);
   const [showPasswords, setShowPasswords] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+      toast.success('Your account has been deleted permanently.');
+      navigate('/', { replace: true });
+    } catch (err) {
+      setDeleteError(err?.message || 'Failed to delete account. Please try again.');
+      setDeleting(false);
+    }
+  };
 
   const form = useForm(initial, validate, async (values) => {
     setFormError(null);
@@ -169,17 +186,110 @@ export function SettingsPage() {
         </form>
       </section>
 
-      {/* ── Danger zone (delete account ships in a later phase) ── */}
+      {/* ── Danger zone ── */}
       <section className="app-card border-danger/30 p-6 dark:border-danger/40">
         <h2 className="text-lg font-semibold text-danger">Danger zone</h2>
         <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-          Permanently delete your account and everything you own. This action cannot be undone.
+          Permanently delete your account, owned projects, tasks, and notes. This action is irreversible.
         </p>
-        <Button variant="danger" className="mt-4" disabled>
-          <LogOut className="h-4 w-4" aria-hidden />
-          Delete account — coming soon
+        <Button
+          variant="danger"
+          className="mt-4 gap-2"
+          onClick={() => {
+            setDeleteError(null);
+            setConfirmingDelete(true);
+          }}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden />
+          Delete account
         </Button>
       </section>
+
+      {confirmingDelete && (
+        <DeleteAccountModal
+          user={user}
+          busy={deleting}
+          error={deleteError}
+          onClose={() => {
+            if (!deleting) setConfirmingDelete(false);
+          }}
+          onConfirm={handleDeleteAccount}
+        />
+      )}
     </div>
+  );
+}
+
+/** Confirm modal — requires typing username to enable permanent deletion. */
+function DeleteAccountModal({ user, busy, error, onClose, onConfirm }) {
+  const [confirmation, setConfirmation] = useState('');
+  const requiredText = user?.username || 'DELETE';
+  const matches = confirmation.trim().toLowerCase() === requiredText.toLowerCase();
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Delete your account?"
+      description="This action will permanently delete your user profile and all associated data."
+      footer={
+        <div className="flex w-full items-center justify-end gap-3">
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            loading={busy}
+            disabled={!matches || busy}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Permanently delete account
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {error && (
+          <div
+            className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="rounded-lg border border-danger/20 bg-danger/5 p-4 text-xs text-muted-foreground space-y-2">
+          <div className="flex items-center gap-2 font-semibold text-danger text-sm">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Warning: This action cannot be undone
+          </div>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>All projects created by you will be permanently deleted.</li>
+            <li>All tasks, subtasks, notes, and discussions within those projects will be purged.</li>
+            <li>Your memberships in collaborative projects will be revoked.</li>
+            <li>Your active session will be terminated immediately.</li>
+          </ul>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="confirm-account-delete" className="text-xs font-medium text-foreground">
+            Type <span className="font-mono font-bold text-danger">{requiredText}</span> to confirm:
+          </label>
+          <input
+            id="confirm-account-delete"
+            type="text"
+            autoComplete="off"
+            className="app-input"
+            placeholder={requiredText}
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            disabled={busy}
+            data-autofocus
+          />
+        </div>
+      </div>
+    </Modal>
   );
 }

@@ -52,6 +52,15 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  async deleteAccount() {
+    try {
+      await authApi.deleteAccount();
+    } finally {
+      useCacheStore.getState().clear();
+      set({ ...initial, status: 'unauthenticated' });
+    }
+  },
+
   clearSession() {
     useCacheStore.getState().clear();
     set({ ...initial, status: 'unauthenticated' });

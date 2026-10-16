@@ -139,4 +139,16 @@ try {
   ok('logout clears the session');
 }
 
+/* delete account removes session and data */
+await call('POST', '/api/v1/auth/login', { username: 'sam', password: 'DemoPass123!' });
+const delRes = await call('DELETE', '/api/v1/auth/me');
+assert.equal(delRes.statusCode, 200);
+try {
+  await call('GET', '/api/v1/auth/me');
+  assert.fail('expected 401 after delete account');
+} catch (e) {
+  assert.equal(e.status, 401);
+  ok('delete account clears session and deletes user');
+}
+
 console.log(`\n  RESULT: ${passed} passed\n`);

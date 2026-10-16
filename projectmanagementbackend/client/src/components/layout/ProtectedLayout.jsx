@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Home, PanelLeft, Menu, Search, Settings, X, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Home, PanelLeft, Menu, Search, X, HelpCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useUiStore } from '../../stores/uiStore.js';
@@ -21,9 +21,8 @@ export function ProtectedLayout() {
   const location = useLocation();
   const isHome = location.pathname === '/dashboard' || location.pathname === '/';
   const mobileOpen = useUiStore((s) => s.mobileSidebarOpen);
-  const setMobileOpen = useUiStore((s) => s.setMobileSidebarOpen);
-  const closeMobileSidebar = useUiStore((s) => s.closeMobileSidebar);
   const openMobileSidebar = useUiStore((s) => s.openMobileSidebar);
+  const closeMobileSidebar = useUiStore((s) => s.closeMobileSidebar);
 
   const openPalette = useUiStore((s) => s.openPalette);
   const togglePalette = useUiStore((s) => s.togglePalette);
@@ -117,7 +116,7 @@ export function ProtectedLayout() {
           <div className="flex min-w-0 flex-1 items-center gap-2 max-w-xl">
             <button
               type="button"
-              onClick={() => setMobileOpen(true)}
+              onClick={openMobileSidebar}
               aria-label="Open mobile navigation"
               className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden shrink-0"
             >
@@ -238,15 +237,6 @@ export function ProtectedLayout() {
                 </span>
               </Link>
             )}
-
-            <Link
-              to="/settings"
-              aria-label="Settings"
-              title="Settings"
-              className="hidden md:inline-flex rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <Settings className="h-4 w-4" aria-hidden />
-            </Link>
           </div>
         </header>
 

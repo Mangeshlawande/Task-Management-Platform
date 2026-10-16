@@ -14,6 +14,7 @@ import {
   Sun,
   Users,
   HelpCircle,
+  Trash2,
 } from 'lucide-react';
 import { Modal } from '../ui/index.js';
 import { useUiStore } from '../../stores/uiStore.js';
@@ -160,6 +161,14 @@ export function CommandPalette({ onLogout }) {
         hint: 'Navigate',
         icon: Settings,
         keywords: 'password credentials security',
+        run: () => navigate('/settings'),
+      },
+      {
+        id: 'delete-account',
+        label: 'Delete Account (Danger Zone)',
+        hint: 'Settings',
+        icon: Trash2,
+        keywords: 'delete remove destroy account user terminate danger',
         run: () => navigate('/settings'),
       },
       {

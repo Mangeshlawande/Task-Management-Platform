@@ -214,6 +214,37 @@ route('POST', '/api/v1/auth/change-password', ({ body }) => {
   return ok(200, {}, 'Password changed successfully');
 });
 
+route('DELETE', '/api/v1/auth/me', () => {
+  const user = requireAuth();
+  const uid = user._id;
+
+  // Remove all project memberships for this user
+  db.members = db.members.filter((m) => m.user !== uid);
+
+  // For projects created by this user, delete tasks, subtasks, notes, members, and the projects
+  const ownedProjects = db.projects.filter((p) => p.createdBy === uid);
+  const ownedProjectIds = ownedProjects.map((p) => p._id);
+  if (ownedProjectIds.length > 0) {
+    const taskIds = db.tasks.filter((t) => ownedProjectIds.includes(t.project)).map((t) => t._id);
+    db.subtasks = db.subtasks.filter((s) => !taskIds.includes(s.task));
+    db.tasks = db.tasks.filter((t) => !ownedProjectIds.includes(t.project));
+    db.notes = db.notes.filter((n) => !ownedProjectIds.includes(n.project));
+    db.members = db.members.filter((m) => !ownedProjectIds.includes(m.project));
+    db.projects = db.projects.filter((p) => !ownedProjectIds.includes(p._id));
+  }
+
+  // Remove comments authored by user
+  if (db.comments) {
+    db.comments = db.comments.filter((c) => c.author !== uid);
+  }
+
+  // Remove user and clear session
+  db.users = db.users.filter((u) => u._id !== uid);
+  db.session = null;
+
+  return ok(200, {}, 'Account deleted successfully');
+});
+
 /* =========================================================
    PROJECTS
 ========================================================= */

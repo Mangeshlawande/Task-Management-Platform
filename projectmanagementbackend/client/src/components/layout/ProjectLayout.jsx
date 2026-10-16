@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useProjectDetail } from '../../features/projects/useProjectDetail.js';
-import { useUiStore } from '../../stores/uiStore.js';
 import { Badge, Button, Skeleton } from '../ui/index.js';
 import {
   formatDate,

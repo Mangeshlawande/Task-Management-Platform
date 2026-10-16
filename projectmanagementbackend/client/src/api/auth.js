@@ -25,4 +25,6 @@ export const authApi = {
 
   changePassword: ({ oldPassword, newPassword }) =>
     api.post('/api/v1/auth/change-password', { oldPassword, newPassword }),
+
+  deleteAccount: () => api.delete('/api/v1/auth/me'),
 };

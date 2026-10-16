@@ -153,8 +153,8 @@ export function ProfilePage() {
             <KeyRound className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Security & Credentials</h3>
-            <p className="text-xs text-muted">Manage your password and authentication preferences.</p>
+            <h3 className="text-sm font-semibold text-foreground">Security & Account Settings</h3>
+            <p className="text-xs text-muted">Manage your password, credentials, and account lifecycle.</p>
           </div>
         </div>
         <Link to="/settings">

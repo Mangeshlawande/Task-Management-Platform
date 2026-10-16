@@ -8,6 +8,8 @@ import { Button, Field, Modal } from '../../components/ui/index.js';
 import { toast } from '../../stores/uiStore.js';
 import { useProject } from '../../components/layout/ProjectLayout.jsx';
 import { exportTasksToCSV, exportProjectToJSON } from '../../lib/exportService.js';
+import { tasksApi } from '../../api/tasks.js';
+import { projectsApi } from '../../api/projects.js';
 
 /** Mirrors the Project model: name 3–100 (required), description ≤ 1000. */
 const validate = (values) => {
@@ -45,6 +47,39 @@ export function ProjectSettingsTab() {
   const [saved, setSaved] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCSV = async () => {
+    try {
+      setExporting(true);
+      const res = await tasksApi.list(project._id);
+      const taskList = res?.tasks || res || [];
+      exportTasksToCSV(taskList, project?.name || 'project');
+      toast.success('Tasks exported to CSV.');
+    } catch {
+      toast.error('Failed to export tasks.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportJSON = async () => {
+    try {
+      setExporting(true);
+      const [tasksRes, membersRes] = await Promise.all([
+        tasksApi.list(project._id),
+        projectsApi.members(project._id),
+      ]);
+      const taskList = tasksRes?.tasks || tasksRes || [];
+      const memberList = membersRes?.members || membersRes || [];
+      exportProjectToJSON({ project, tasks: taskList, members: memberList });
+      toast.success('Full project exported to JSON.');
+    } catch {
+      toast.error('Failed to export project.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // `key`-less sync: seed values from the project, then let the form own them.
   const form = useForm(
@@ -185,10 +220,8 @@ export function ProjectSettingsTab() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              exportTasksToCSV(tasks || [], project?.name || 'project');
-              toast.success('Tasks exported to CSV.');
-            }}
+            disabled={exporting}
+            onClick={handleExportCSV}
             className="gap-2"
           >
             <Download className="h-4 w-4 text-primary" />
@@ -198,10 +231,8 @@ export function ProjectSettingsTab() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              exportProjectToJSON({ project, tasks: tasks || [], members: members || [] });
-              toast.success('Full project exported to JSON.');
-            }}
+            disabled={exporting}
+            onClick={handleExportJSON}
             className="gap-2"
           >
             <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
